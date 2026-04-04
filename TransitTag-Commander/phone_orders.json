@@ -1,0 +1,80 @@
+[
+  {
+    "customer_name": "Jmaes wangui",
+    "customer_phone": "0799737396",
+    "customer_email": "pooei07@gmail.com",
+    "delivery_address": "parklands, Nairobi",
+    "notes": "",
+    "items": [
+      {
+        "model": "iPhone 15 Pro",
+        "storage": "256GB",
+        "quantity": 1,
+        "price_kes": 62100,
+        "price_usd": 483
+      }
+    ],
+    "total_kes": 62100,
+    "total_usd": null,
+    "currency": "kes",
+    "id": 1,
+    "created_at": "2026-04-04T00:20:42.741083",
+    "status": "delivered",
+    "updated_at": "2026-04-04T06:27:49.959075"
+  },
+  {
+    "customer_name": "Remus Joseph",
+    "customer_phone": "0700531196",
+    "customer_email": "dand@gmail.com",
+    "delivery_address": "uthiru, Nairobi",
+    "notes": "",
+    "items": [
+      {
+        "model": "iPhone 12",
+        "storage": "128GB",
+        "quantity": 1,
+        "price_kes": 21600,
+        "price_usd": 168
+      }
+    ],
+    "total_kes": 21600,
+    "total_usd": null,
+    "currency": "kes",
+    "id": 2,
+    "created_at": "2026-04-04T00:52:50.629606",
+    "status": "delivered",
+    "updated_at": "2026-04-04T06:21:27.645002"
+  },
+  {
+    "customer_name": "Peter rons",
+    "customer_phone": "0700531196",
+    "customer_email": "mieeeee@gmail.com",
+    "delivery_address": "Utali, Nairobi",
+    "notes": "near kipande road",
+    "items": [
+      {
+        "model": "iPhone 16 Plus",
+        "storage": "128GB",
+        "quantity": 1,
+        "price_kes": 73800,
+        "price_usd": 574
+      }
+    ],
+    "total_kes": 73800,
+    "total_usd": null,
+    "currency": "kes",
+    "id": 3,
+    "created_at": "2026-04-04T06:07:15.202566",
+    "status": "confirmed",
+    "updated_at": "2026-04-04T06:28:05.817860",
+    "replies": [
+      {
+        "id": 1,
+        "message": "Arrived",
+        "from_admin": true,
+        "timestamp": "2026-04-04T06:19:56.164395",
+        "read": false
+      }
+    ]
+  }
+]

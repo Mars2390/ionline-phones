@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | iOnline Refurbished</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #F69322;
+            --primary-dark: #e08510;
+            --grey: #4D4D4F;
+            --white: #FFFFFF;
+            --dark: #1a1a1a;
+            --card-bg: #2a2a2a;
+            --text: #e0e0e0;
+            --success: #4caf50;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, var(--dark) 0%, #0a0a0a 100%);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
+        .checkout-header {
+            background: linear-gradient(135deg, var(--grey) 0%, #2a2a2a 100%);
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--white);
+            text-decoration: none;
+        }
+        .logo span { color: var(--primary); }
+        .checkout-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .form-control, .form-select {
+            background: var(--dark);
+            border: 1px solid var(--grey);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 10px;
+        }
+        .form-control:focus, .form-select:focus {
+            background: var(--dark);
+            border-color: var(--primary);
+            color: var(--text);
+            box-shadow: 0 0 0 0.25rem rgba(246,147,34,0.25);
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            border-radius: 50px;
+            color: var(--white);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .order-item {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .secure-badge {
+            background: rgba(76,175,80,0.1);
+            border: 1px solid var(--success);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        @media (max-width: 768px) {
+            .checkout-card { padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="checkout-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="/phones" class="logo">iOnline<span>Refurbished</span></a>
+            <a href="/phones" class="text-white"><i class="bi bi-arrow-left"></i> Continue Shopping</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="checkout-card">
+                <h3 class="mb-4"><i class="bi bi-person-circle"></i> Shipping Information</h3>
+                <form id="checkout-form">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" id="full-name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" class="form-control" id="phone" placeholder="0712345678" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" placeholder="your@email.com">
+                            <small class="text-muted">We'll send order confirmation here</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Delivery Address *</label>
+                            <input type="text" class="form-control" id="address" placeholder="Building name, street, estate" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">City *</label>
+                            <input type="text" class="form-control" id="city" value="Nairobi" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">County</label>
+                            <input type="text" class="form-control" id="county" placeholder="Nairobi">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Postal Code</label>
+                            <input type="text" class="form-control" id="postal" placeholder="00100">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Delivery Instructions (Optional)</label>
+                            <textarea class="form-control" id="notes" rows="2" placeholder="Gate code, landmark, nearest matatu stage..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="secure-badge">
+                <i class="bi bi-shield-check fs-4" style="color: var(--success);"></i>
+                <p class="mb-0 small">Your information is secure. Payment will be processed after order confirmation.</p>
+            </div>
+        </div>
+        
+        <div class="col-lg-5">
+            <div class="checkout-card">
+                <h3 class="mb-4"><i class="bi bi-cart3"></i> Order Summary</h3>
+                <div id="order-items"></div>
+                <hr>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Subtotal:</span>
+                    <span id="subtotal">KES 0</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Shipping (48hr express):</span>
+                    <span class="text-success">FREE</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="fw-bold fs-5">Total:</span>
+                    <span class="fw-bold fs-5" id="total-amount">KES 0</span>
+                </div>
+                <button class="btn-submit" onclick="placeOrder()">
+                    <i class="bi bi-check-circle"></i> Place Order
+                </button>
+                <p class="small text-muted text-center mt-3">
+                    <i class="bi bi-truck"></i> 48-hour express delivery to Nairobi
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let orderData = null;
+    let currentCurrency = 'kes';
+    
+    function loadOrder() {
+        let stored = sessionStorage.getItem('pendingOrder');
+        if (!stored) {
+            window.location.href = '/phones';
+            return;
+        }
+        orderData = JSON.parse(stored);
+        currentCurrency = orderData.currency;
+        renderOrderSummary();
+    }
+    
+    function renderOrderSummary() {
+        let container = document.getElementById('order-items');
+        let currencySymbol = currentCurrency === 'kes' ? 'KES' : '$';
+        
+        let itemsHtml = '';
+        orderData.cart.forEach(item => {
+            let price = currentCurrency === 'kes' ? item.price_kes : item.price_usd;
+            itemsHtml += `
+                <div class="order-item">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="fw-bold">${item.model} ${item.storage}</div>
+                            <div class="small text-muted">Quantity: ${item.quantity}</div>
+                        </div>
+                        <div class="fw-bold">${currencySymbol} ${(price * item.quantity).toLocaleString()}</div>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = itemsHtml;
+        
+        let subtotal = orderData.subtotal;
+        document.getElementById('subtotal').innerHTML = `${currencySymbol} ${subtotal.toLocaleString()}`;
+        document.getElementById('total-amount').innerHTML = `${currencySymbol} ${subtotal.toLocaleString()}`;
+    }
+    
+    async function placeOrder() {
+        let name = document.getElementById('full-name').value;
+        let phone = document.getElementById('phone').value;
+        let email = document.getElementById('email').value;
+        let address = document.getElementById('address').value;
+        let city = document.getElementById('city').value;
+        let notes = document.getElementById('notes').value;
+        
+        if (!name || !phone || !address || !city) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        let orderPayload = {
+            customer_name: name,
+            customer_phone: phone,
+            customer_email: email || null,
+            delivery_address: `${address}, ${city}`,
+            notes: notes,
+            items: orderData.cart.map(item => ({
+                model: item.model,
+                storage: item.storage,
+                quantity: item.quantity,
+                price_kes: item.price_kes,
+                price_usd: item.price_usd
+            })),
+            total_kes: currentCurrency === 'kes' ? orderData.subtotal : null,
+            total_usd: currentCurrency === 'usd' ? orderData.subtotal : null,
+            currency: currentCurrency
+        };
+        
+        try {
+            let res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderPayload)
+            });
+            let data = await res.json();
+            
+            if (data.status === 'success') {
+                sessionStorage.removeItem('pendingOrder');
+                alert(`✅ Order #${data.order_id} placed successfully!\n\nYou will receive a confirmation call within 1 hour.\nDelivery: 48 hours express shipping.\n\nThank you for shopping with iOnline Refurbished!`);
+                window.location.href = '/phones';
+            } else {
+                alert('Error placing order. Please try again.');
+            }
+        } catch(e) {
+            alert('Connection error. Please check your internet and try again.');
+        }
+    }
+    
+    loadOrder();
+</script>
+</body>
+</html>

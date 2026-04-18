@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TransitTag Driver | Smart Fleet Intelligence</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #ffb347;
+            --primary-dark: #e69a2e;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --info: #00bcd4;
+            --dark: #0a0f1e;
+            --darker: #050814;
+            --card-bg: #1a1f35;
+            --text: #e0e0e0;
+            --text-muted: #8e96b0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: linear-gradient(135deg, var(--dark) 0%, var(--darker) 100%); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        .driver-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 20px;
+            border-radius: 0 0 30px 30px;
+            color: var(--dark);
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary);
+        }
+        .student-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .student-card.boarding { border-left-color: var(--success); background: rgba(76,175,80,0.1); }
+        .student-card.waiting { border-left-color: var(--warning); }
+        .student-card.alighted { border-left-color: var(--info); opacity: 0.7; }
+        .student-card:hover { transform: translateX(5px); background: rgba(255,180,71,0.1); }
+        .map-container {
+            height: 350px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 2px solid var(--primary);
+        }
+        .emergency-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 50px;
+            font-weight: 700;
+            width: 100%;
+            margin-top: 15px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .nav-tabs-custom {
+            background: var(--card-bg);
+            border-radius: 30px;
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+        .nav-tabs-custom .nav-link {
+            border-radius: 25px;
+            color: var(--text-muted);
+            padding: 8px 20px;
+        }
+        .nav-tabs-custom .nav-link.active {
+            background: var(--primary);
+            color: var(--dark);
+        }
+        .voice-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: all 0.2s;
+        }
+        .voice-btn.listening {
+            background: var(--danger);
+            animation: pulse 0.5s infinite;
+        }
+        .voice-status {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            background: var(--card-bg);
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            border-left: 3px solid var(--primary);
+            z-index: 1000;
+        }
+        .student-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .dot-boarded { background: var(--success); box-shadow: 0 0 5px var(--success); }
+        .dot-waiting { background: var(--warning); }
+        .dot-alighted { background: var(--info); }
+        .student-popup {
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 8px;
+            border-left: 3px solid var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div id="main-dashboard">
+        <div class="driver-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="driver-avatar bg-dark rounded-circle p-3">
+                        <i class="bi bi-person-circle fs-1"></i>
+                    </div>
+                    <div>
+                        <div class="greeting-text" id="greeting-text">Good morning,</div>
+                        <div class="driver-name fw-bold fs-4" id="driver-name-display">Driver</div>
+                        <div class="small" id="bus-display">Bus Loading...</div>
+                    </div>
+                </div>
+                <div>
+                    <span class="badge bg-success" id="online-status"><span class="live-indicator"></span> LIVE</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="container-fluid px-3">
+            <ul class="nav nav-tabs-custom d-flex" id="driverTabs" role="tablist">
+                <li class="nav-item flex-fill text-center"><button class="nav-link active w-100" data-bs-toggle="tab" data-bs-target="#route">🗺️ Route & Map</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#students">👥 Students</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#vehicle">🔧 Vehicle</button></li>
+            </ul>
+
+            <div class="tab-content mt-3">
+                <div class="tab-pane fade show active" id="route">
+                    <div class="map-container" id="map"></div>
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div><div class="stat-label">NEXT STOP</div><div class="fw-bold fs-5" id="next-stop">--</div></div>
+                            <div class="text-end"><div class="stat-label">ETA</div><div class="fw-bold fs-5" id="eta">--</div></div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div><div class="stat-label">CURRENT SPEED</div><div class="fw-bold fs-2" id="current-speed">0 km/h</div></div>
+                            <div><i class="bi bi-speedometer2 fs-1" style="color: var(--primary);"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="students">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div><span class="badge bg-success">✅ Boarded: <span id="boarded-count">0</span></span></div>
+                        <div><span class="badge bg-warning">⏳ Waiting: <span id="waiting-count">0</span></span></div>
+                        <div><span class="badge bg-info">🏫 Arrived: <span id="arrived-count">0</span></span></div>
+                    </div>
+                    <div id="students-list" style="max-height: 500px; overflow-y: auto;"></div>
+                </div>
+
+                <div class="tab-pane fade" id="vehicle">
+                    <div class="stat-card">
+                        <div class="vehicle-health d-flex gap-3 flex-wrap">
+                            <div class="text-center flex-grow-1"><div class="fw-bold fs-4" id="vehicle-battery">--</div><div class="small">BATTERY</div></div>
+                            <div class="text-center flex-grow-1"><div class="fw-bold fs-4" id="vehicle-signal">--</div><div class="small">SIGNAL</div></div>
+                            <div class="text-center flex-grow-1"><div class="fw-bold fs-4" id="vehicle-speed">0</div><div class="small">SPEED</div></div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-primary w-100" onclick="refreshHealth()"><i class="bi bi-arrow-repeat"></i> Refresh</button>
+                </div>
+            </div>
+
+            <button class="emergency-btn" onclick="emergencyAlert()">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> EMERGENCY - PRESS FOR HELP
+            </button>
+        </div>
+
+        <div class="voice-btn" onclick="toggleVoice()">
+            <i class="bi bi-mic-fill"></i>
+        </div>
+        <div id="voice-status" class="voice-status" style="display: none;">🎤 Listening...</div>
+    </div>
+
+    <script>
+        let map, busMarker, studentMarkers = {};
+        let currentLocation = [-1.2864, 36.8172];
+        let driverProfile = {};
+        let students = [];
+        let vehicleImei = "863471063393911";
+        let recognition = null;
+        let isListening = false;
+        
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        function toggleVoice() {
+            if (!('webkitSpeechRecognition' in window)) {
+                speak("Voice recognition not supported.");
+                return;
+            }
+            if (isListening) {
+                if (recognition) recognition.stop();
+                return;
+            }
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-status').style.display = 'block';
+                document.querySelector('.voice-btn').style.background = 'var(--danger)';
+                speak("Driver, I'm listening. How can I help?");
+            };
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('voice-status').style.display = 'none';
+                document.querySelector('.voice-btn').style.background = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
+            };
+            recognition.onresult = (e) => {
+                let cmd = e.results[0][0].transcript.toLowerCase();
+                processVoiceCommand(cmd);
+            };
+            recognition.start();
+        }
+        
+        function processVoiceCommand(cmd) {
+            if (cmd.includes('students') || cmd.includes('boarded')) {
+                let boarded = students.filter(s => s.boarded).length;
+                speak(`You have ${boarded} students on board. ${students.length - boarded} waiting to board.`);
+            } else if (cmd.includes('next stop')) {
+                speak(`Next stop is ${document.getElementById('next-stop').innerText}. ETA ${document.getElementById('eta').innerText}.`);
+            } else if (cmd.includes('speed')) {
+                speak(`Current speed is ${document.getElementById('current-speed').innerText}.`);
+            } else if (cmd.includes('emergency')) {
+                emergencyAlert();
+            } else if (cmd.includes('health')) {
+                refreshHealth();
+            } else if (cmd.includes('help')) {
+                speak("You can ask: How many students are on board? What is the next stop? What is my speed? Or say emergency for help.");
+            } else {
+                speak("Command not recognized. Try: students on board, next stop, speed, or emergency.");
+            }
+        }
+        
+        async function loadDriverProfile() {
+            try {
+                let res = await fetch('/api/admin/vehicles');
+                let vehicles = await res.json();
+                let vehicle = vehicles[0] || { bus_number: 'BUS-101', driver_name: 'Driver', imei: vehicleImei };
+                vehicleImei = vehicle.imei;
+                driverProfile = { name: vehicle.driver_name, busNumber: vehicle.bus_number, imei: vehicle.imei };
+                document.getElementById('driver-name-display').innerHTML = driverProfile.name;
+                document.getElementById('bus-display').innerHTML = `Bus ${driverProfile.busNumber}`;
+                let hour = new Date().getHours();
+                let greeting = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good evening");
+                document.getElementById('greeting-text').innerHTML = `${greeting},`;
+                speak(`Welcome ${driverProfile.name}. Your bus is ready.`);
+            } catch(e) { console.error(e); }
+        }
+        
+        async function loadStudents() {
+            try {
+                let res = await fetch('/api/driver/students/' + vehicleImei);
+                students = await res.json();
+                updateCounts();
+                renderStudentsList();
+                updateStudentMarkers();
+            } catch(e) { console.error(e); }
+        }
+        
+        function updateCounts() {
+            let boarded = students.filter(s => s.boarded).length;
+            let waiting = students.filter(s => !s.boarded && !s.alight_time).length;
+            let arrived = students.filter(s => s.alight_time && new Date(s.alight_time).toDateString() === new Date().toDateString()).length;
+            document.getElementById('boarded-count').innerHTML = boarded;
+            document.getElementById('waiting-count').innerHTML = waiting;
+            document.getElementById('arrived-count').innerHTML = arrived;
+        }
+        
+        function renderStudentsList() {
+            let container = document.getElementById('students-list');
+            if (!students.length) { container.innerHTML = '<div class="text-center text-muted py-4">No students assigned</div>'; return; }
+            let html = '';
+            students.forEach(s => {
+                let statusClass = s.boarded ? 'boarding' : (s.alight_time ? 'alighted' : 'waiting');
+                let statusBadge = s.boarded ? '<span class="badge bg-success">✅ Boarded</span>' : (s.alight_time ? '<span class="badge bg-info">🏫 Arrived</span>' : '<span class="badge bg-warning">⏳ Waiting</span>');
+                let lastActivity = s.board_time ? `Boarded: ${new Date(s.board_time).toLocaleTimeString()}` : (s.alight_time ? `Arrived: ${new Date(s.alight_time).toLocaleTimeString()}` : 'Not boarded');
+                html += `<div class="student-card ${statusClass}" onclick="centerOnStudent(${s.lat}, ${s.lon}, '${s.name}')">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <div class="student-name fw-bold">${s.name}</div>
+                                    <div class="small text-muted">${s.class || 'Student'} | 📍 ${s.address || 'No address'}</div>
+                                    <div class="small text-muted mt-1">${lastActivity}</div>
+                                </div>
+                                ${statusBadge}
+                            </div>
+                         </div>`;
+            });
+            container.innerHTML = html;
+        }
+        
+        function centerOnStudent(lat, lon, name) {
+            if (lat && lon) {
+                map.setView([lat, lon], 15);
+                speak(`Showing location for ${name}`);
+            }
+        }
+        
+        function updateStudentMarkers() {
+            Object.values(studentMarkers).forEach(m => map.removeLayer(m));
+            studentMarkers = {};
+            students.forEach(s => {
+                if (s.lat && s.lon && s.lat !== 0 && s.lon !== 0) {
+                    let color = s.boarded ? '#4caf50' : (s.alight_time ? '#00bcd4' : '#ff9800');
+                    let icon = L.divIcon({
+                        html: `<div style="background:${color}; width:15px; height:15px; border-radius:50%; border:2px solid white; box-shadow:0 0 5px ${color};"></div>`,
+                        iconSize: [15,15]
+                    });
+                    let popupContent = `<div class="student-popup"><strong>${s.name}</strong><br>${s.address || 'No address'}<br>Status: ${s.boarded ? 'On Bus' : (s.alight_time ? 'Arrived' : 'Waiting')}</div>`;
+                    studentMarkers[s.id] = L.marker([s.lat, s.lon], { icon }).addTo(map).bindPopup(popupContent);
+                }
+            });
+        }
+        
+        async function refreshHealth() {
+            try {
+                let res = await fetch('/api/driver/vehicle/' + vehicleImei);
+                let data = await res.json();
+                document.getElementById('vehicle-battery').innerHTML = data.battery + 'V';
+                document.getElementById('vehicle-signal').innerHTML = data.signal;
+                document.getElementById('vehicle-speed').innerHTML = data.speed;
+            } catch(e) { console.error(e); }
+        }
+        
+        async function emergencyAlert() {
+            await fetch('/api/driver/emergency', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ driver: driverProfile.name, bus: driverProfile.busNumber, location: currentLocation }) });
+            speak("Emergency alert sent. Help is on the way.");
+            alert('🚨 EMERGENCY ALERT SENT!');
+        }
+        
+        function initMap() {
+            map = L.map('map').setView(currentLocation, 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+            busMarker = L.marker(currentLocation, {
+                icon: L.divIcon({ html: '<div style="background:#ffb347; width:30px; height:30px; border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center;"><i class="bi bi-bus-front" style="font-size:16px;"></i></div>', iconSize: [30,30] })
+            }).addTo(map).bindPopup('Your Bus');
+        }
+        
+        async function updateRealTimeData() {
+            try {
+                let locRes = await fetch('/api/locations');
+                let locations = await locRes.json();
+                let vehicleLoc = locations.find(l => l.imei === vehicleImei);
+                if (vehicleLoc && vehicleLoc.lat && vehicleLoc.lon) {
+                    currentLocation = [vehicleLoc.lat, vehicleLoc.lon];
+                    busMarker.setLatLng(currentLocation);
+                    map.setView(currentLocation, 14);
+                    document.getElementById('current-speed').innerHTML = `${vehicleLoc.speed} km/h`;
+                }
+                let routeRes = await fetch('/api/driver/route/' + vehicleImei);
+                let routeData = await routeRes.json();
+                if (routeData) {
+                    document.getElementById('next-stop').innerHTML = routeData.stops?.[routeData.current_stop]?.name || 'School';
+                    document.getElementById('eta').innerHTML = routeData.eta || '5 min';
+                }
+                await refreshHealth();
+                await loadStudents();
+            } catch(e) { console.error(e); }
+        }
+        
+        async function init() {
+            await loadDriverProfile();
+            initMap();
+            await updateRealTimeData();
+            setInterval(updateRealTimeData, 3000);
+        }
+        
+        init();
+    </script>
+</body>
+</html>

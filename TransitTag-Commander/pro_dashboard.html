@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFRICAN IoT COMMAND CENTER | VOICE CONTROL</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #ffb347;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --info: #00bcd4;
+            --dark: #0a0f1e;
+            --darker: #050814;
+            --card-bg: #1a1f35;
+            --text: #e0e0e0;
+            --text-muted: #8e96b0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--dark); color: var(--text); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .bg-animated { background: linear-gradient(-45deg, var(--dark), var(--darker), #1a1f35, #0f1425); background-size: 400% 400%; animation: gradient 15s ease infinite; min-height: 100vh; }
+        @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .glass-card { background: rgba(26, 31, 53, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 180, 70, 0.2); border-radius: 20px; padding: 1.5rem; transition: all 0.3s ease; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
+        .glass-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 12px 48px rgba(255, 180, 70, 0.2); }
+        .stat-card { background: linear-gradient(135deg, var(--card-bg), var(--darker)); border-left: 4px solid var(--primary); border-radius: 15px; padding: 1.2rem; position: relative; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+        .stat-card:hover { transform: scale(1.02); }
+        .stat-value { font-size: 2.5rem; font-weight: 700; color: var(--primary); line-height: 1.2; }
+        .stat-label { color: var(--text-muted); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
+        .message-container { max-height: 400px; overflow-y: auto; padding-right: 5px; }
+        .message-item { background: rgba(0, 0, 0, 0.3); border-left: 3px solid; border-radius: 10px; padding: 1rem; margin-bottom: 0.8rem; }
+        .message-item.normal { border-left-color: var(--success); }
+        .message-item.warning { border-left-color: var(--warning); }
+        .message-item.critical { border-left-color: var(--danger); }
+        .message-time { color: var(--text-muted); font-size: 0.8rem; }
+        .message-topic { color: var(--primary); font-weight: 600; font-size: 0.9rem; word-break: break-all; }
+        .message-payload { font-size: 0.8rem; color: var(--text-muted); }
+        .badge-normal { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid #4caf50; }
+        .badge-warning { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid #ff9800; }
+        .badge-critical { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid #f44336; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--darker); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+        .alert-badge { padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; }
+        .alert-warning { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid #ff9800; }
+        .alert-danger { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid #f44336; }
+        .alert-success { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid #4caf50; }
+        .alert-info { background: rgba(0, 188, 212, 0.2); color: #00bcd4; border: 1px solid #00bcd4; }
+        .chart-container { background: rgba(0, 0, 0, 0.3); border-radius: 15px; padding: 1rem; height: 300px; }
+        .live-indicator { display: inline-block; width: 12px; height: 12px; background: #4caf50; border-radius: 50%; animation: pulse 2s infinite; margin-right: 8px; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); } 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); } }
+        .header-gradient { background: linear-gradient(135deg, var(--card-bg) 0%, var(--darker) 100%); border-bottom: 3px solid var(--primary); }
+        .device-card { background: rgba(0, 0, 0, 0.3); border-radius: 10px; padding: 0.8rem; margin-bottom: 0.5rem; border-left: 3px solid; cursor: pointer; transition: all 0.2s; }
+        .device-card:hover { transform: scale(1.02); background: rgba(255,180,70,0.1); }
+        .device-card.online { border-left-color: var(--success); }
+        .device-card.offline { border-left-color: var(--danger); }
+        .device-card.warning { border-left-color: var(--warning); }
+        .device-status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+        .status-online { background: #4caf50; }
+        .status-offline { background: #f44336; }
+        .status-warning { background: #ff9800; }
+        .intel-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,180,70,0.3); padding-bottom: 10px; flex-wrap: wrap; }
+        .intel-tab { padding: 8px 20px; border-radius: 20px; cursor: pointer; background: rgba(255,255,255,0.05); transition: all 0.2s; }
+        .intel-tab:hover { background: rgba(255,180,70,0.2); }
+        .intel-tab.active { background: var(--primary); color: var(--dark); font-weight: 600; }
+        .no-data { text-align: center; padding: 3rem; color: var(--text-muted); font-style: italic; }
+        #map-container { height: 500px; width: 100%; border-radius: 15px; margin-top: 20px; margin-bottom: 20px; border: 2px solid var(--primary); display: none; }
+        .map-legend { background: var(--card-bg); padding: 10px; border-radius: 10px; margin-bottom: 10px; display: flex; gap: 20px; border: 1px solid var(--primary); display: none; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 50%; }
+        .color-moving { background: #4caf50; }
+        .color-idle { background: #ff9800; }
+        .color-stopped { background: #f44336; }
+        .form-select, .form-control { background: var(--card-bg); color: var(--text); border: 1px solid var(--primary); }
+        .form-check-input { background-color: var(--card-bg); border-color: var(--primary); }
+        .form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
+        .btn-outline-success { border-color: var(--success); color: var(--success); }
+        .btn-outline-success:hover { background: var(--success); color: white; }
+        .btn-outline-danger { border-color: var(--danger); color: var(--danger); }
+        .btn-outline-danger:hover { background: var(--danger); color: white; }
+        .btn-outline-primary { border-color: var(--primary); color: var(--primary); }
+        .btn-outline-primary:hover { background: var(--primary); color: var(--dark); }
+        .btn-outline-warning { border-color: var(--warning); color: var(--warning); }
+        .btn-outline-warning:hover { background: var(--warning); color: var(--dark); }
+        .btn-outline-info { border-color: var(--info); color: var(--info); }
+        .btn-outline-info:hover { background: var(--info); color: var(--dark); }
+        .btn-outline-secondary { border-color: var(--text-muted); color: var(--text-muted); }
+        .command-response-card { background: rgba(0,0,0,0.4); border-radius: 10px; padding: 12px; margin-bottom: 10px; border-left: 4px solid var(--primary); font-family: monospace; font-size: 0.85rem; }
+        .command-history-card { background: rgba(0,0,0,0.4); border-radius: 10px; padding: 12px; margin-bottom: 10px; border-left: 4px solid; font-family: monospace; font-size: 0.8rem; }
+        .command-history-card.confirmed { border-left-color: var(--success); }
+        .command-history-card.sent { border-left-color: var(--warning); }
+        .command-history-card.pending { border-left-color: var(--info); }
+        .command-history-card.timeout { border-left-color: var(--danger); }
+        .command-history-card.failed { border-left-color: var(--danger); }
+        .command-history-card.denied { border-left-color: var(--danger); }
+        .command-response-time { color: var(--text-muted); font-size: 0.7rem; }
+        .command-response-payload { color: #4caf50; word-break: break-all; white-space: pre-wrap; font-size: 0.75rem; max-height: 150px; overflow-y: auto; }
+        .rfid-card { background: rgba(0,0,0,0.4); border-radius: 10px; padding: 12px; margin-bottom: 10px; border-left: 4px solid var(--info); font-family: monospace; }
+        .rfid-user { color: var(--primary); font-weight: bold; }
+        .rfid-station { color: var(--info); }
+        .voice-badge { background: #ffb347; color: #0a0f1e; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .listening { animation: pulse 1s infinite; }
+        @keyframes listening { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .response-structured { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-top: 8px; font-family: monospace; font-size: 0.7rem; }
+        .response-key { color: var(--primary); }
+        .response-value { color: var(--success); }
+        .device-detail-card { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin-top: 15px; border: 1px solid var(--primary); }
+        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .detail-label { color: var(--text-muted); }
+        .detail-value { color: var(--primary); font-weight: bold; }
+        .selected-device-badge { background: var(--primary); color: var(--dark); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; display: inline-block; margin-left: 10px; }
+        .auto-action-card { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--primary); }
+        .power-command { background: rgba(255, 80, 80, 0.2); border-color: #ff5050; }
+        .modal-content { background: var(--card-bg); color: var(--text); }
+        .command-group { margin-bottom: 15px; }
+        .command-group-title { font-size: 0.85rem; color: var(--primary); margin-bottom: 8px; border-left: 3px solid var(--primary); padding-left: 10px; }
+        .voice-btn-active { background: #ff5050; border-color: #ff5050; color: white; animation: pulse 1s infinite; }
+    </style>
+</head>
+<body>
+    <div class="bg-animated">
+        <!-- Header -->
+        <div class="header-gradient text-white py-3 px-4 mb-4">
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h1 class="display-5 fw-bold" style="color: var(--primary);"><i class="bi bi-cpu me-3"></i>AFRICAN IoT COMMAND CENTER</h1>
+                        <p class="mb-0"><span class="live-indicator"></span><span class="badge bg-success me-2">LIVE</span><span class="text-muted">VOICE CONTROL | RFID | FULL INTELLIGENCE</span></p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="d-flex justify-content-end gap-3 align-items-center">
+                            <div class="text-end"><div class="small text-muted">UPTIME</div><div class="fw-bold" id="uptime">00:00:00</div></div>
+                            <div class="text-end"><div class="small text-muted">MESSAGES</div><div class="fw-bold" id="totalMsgs">0</div></div>
+                            <div class="text-end"><div class="small text-muted">VEHICLES</div><div class="fw-bold" id="totalDevices">0</div></div>
+                            <div class="text-end"><div class="small text-muted">ALERTS</div><div class="fw-bold" id="totalAlerts">0</div></div>
+                            <button id="voice-btn" class="btn btn-outline-warning btn-sm ms-2" onclick="startVoiceRecognition()">
+                                <i class="bi bi-mic"></i> 🎤 VOICE
+                            </button>
+                            <div id="voice-status" class="small text-warning ms-2" style="display: none;">
+                                <span class="badge bg-danger">🎤 Listening...</span>
+                            </div>
+                            <div id="user-info" class="ms-3"></div>
+                            <button id="logout-btn" class="btn btn-outline-danger btn-sm" style="display: none;" onclick="logout()">Logout</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content" style="background: var(--card-bg); border: 1px solid var(--primary);">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title" style="color: var(--primary);"><i class="bi bi-shield-lock"></i> Command Center Login</h5>
+                    </div>
+                    <div class="modal-body">
+                        <div id="login-error" class="alert alert-danger d-none"></div>
+                        <div class="mb-3"><label class="form-label">Username</label><input type="text" id="login-username" class="form-control" placeholder="Enter username"></div>
+                        <div class="mb-3"><label class="form-label">Password</label><input type="password" id="login-password" class="form-control" placeholder="Enter password"></div>
+                        <div class="small text-muted mb-3">Test accounts:<br><span class="text-primary">admin / admin123</span> (Super Admin)<br>fleet_manager / manager123<br>driver / driver123</div>
+                        <button class="btn btn-primary w-100" onclick="doLogin()">Login</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container-fluid px-4" id="main-content" style="display: none;">
+            <div class="row mb-3"><div class="col-12"><div class="d-flex justify-content-between align-items-center"><div><span class="badge bg-primary" id="user-role-badge"></span><span class="badge bg-success ms-2" id="user-name-badge"></span></div><div id="super-admin-controls" style="display: none;"><span class="badge bg-danger"><i class="bi bi-crown"></i> SUPER ADMIN MODE</span></div></div></div></div>
+
+            <!-- Tabs -->
+            <div class="intel-tabs">
+                <div class="intel-tab active" data-tab="heartbeat">💓 HEARTBEAT</div>
+                <div class="intel-tab" data-tab="wifi">📶 WIFI</div>
+                <div class="intel-tab" data-tab="rfid">🏷️ RFID SCANS</div>
+                <div class="intel-tab" data-tab="map">🗺️ FLEET MAP</div>
+                <div class="intel-tab" data-tab="command">🎮 COMMANDS</div>
+                <div class="intel-tab" data-tab="history">📜 COMMAND HISTORY</div>
+                <div class="intel-tab" data-tab="admin" id="admin-tab" style="display: none;">👑 ADMIN</div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="row g-4 mb-4">
+                <div class="col-xl-3 col-md-6"><div class="stat-card"><div class="stat-value" id="statHeartbeats">0</div><div class="stat-label">HEARTBEATS</div><i class="bi bi-activity position-absolute bottom-0 end-0 fs-1 opacity-25 me-3 mb-3" style="color: var(--primary);"></i></div></div>
+                <div class="col-xl-3 col-md-6"><div class="stat-card"><div class="stat-value" id="statWifi">0</div><div class="stat-label">WIFI</div><i class="bi bi-wifi position-absolute bottom-0 end-0 fs-1 opacity-25 me-3 mb-3" style="color: var(--primary);"></i></div></div>
+                <div class="col-xl-3 col-md-6"><div class="stat-card"><div class="stat-value" id="statRfid">0</div><div class="stat-label">RFID SCANS</div><i class="bi bi-upc-scan position-absolute bottom-0 end-0 fs-1 opacity-25 me-3 mb-3" style="color: var(--primary);"></i></div></div>
+                <div class="col-xl-3 col-md-6"><div class="stat-card"><div class="stat-value" id="statVehicles">0</div><div class="stat-label">ACTIVE VEHICLES</div><i class="bi bi-truck position-absolute bottom-0 end-0 fs-1 opacity-25 me-3 mb-3" style="color: var(--primary);"></i></div></div>
+            </div>
+
+            <!-- Map Legend -->
+            <div id="map-legend" class="map-legend"><div class="legend-item"><span class="legend-color color-moving"></span> Moving</div><div class="legend-item"><span class="legend-color color-idle"></span> Idle</div><div class="legend-item"><span class="legend-color color-stopped"></span> Stopped</div></div>
+            <div id="map-container"></div>
+
+            <!-- RFID PANEL -->
+            <div id="rfid-panel" class="glass-card mb-4" style="display: none;">
+                <h5 class="mb-3"><i class="bi bi-upc-scan me-2" style="color: var(--primary);"></i>RFID/NFC TAG SCANS</h5>
+                <div class="row mb-3">
+                    <div class="col-md-4"><div class="stat-card"><div class="stat-value" id="rfid-total">0</div><div class="stat-label">TOTAL SCANS</div></div></div>
+                    <div class="col-md-4"><div class="stat-card"><div class="stat-value" id="rfid-stations">0</div><div class="stat-label">ACTIVE STATIONS</div></div></div>
+                    <div class="col-md-4"><div class="stat-card"><div class="stat-value" id="rfid-users">0</div><div class="stat-label">UNIQUE USERS</div></div></div>
+                </div>
+                <div id="rfid-scans-list" class="message-container" style="max-height: 500px;"><div class="no-data">No RFID scans yet. Tap a tag to see data here.</div></div>
+            </div>
+
+            <!-- COMMAND PANEL -->
+            <div id="command-panel" class="glass-card mb-4" style="display: none;">
+                <h5 class="mb-3"><i class="bi bi-command me-2" style="color: var(--primary);"></i>DEVICE COMMANDS <span id="selected-device-badge" class="selected-device-badge" style="display: none;"></span></h5>
+                <div class="row mb-3">
+                    <div class="col-md-6"><label class="form-label">Select Device</label><select id="command-device" class="form-select" onchange="onDeviceSelected()"><option value="">-- Select Device --</option></select></div>
+                    <div class="col-md-6"><label class="form-label">Device Status</label><div id="device-status-badge" class="mt-2"><span class="badge bg-secondary">Select a device</span></div></div>
+                </div>
+                <div id="pending-alert" class="alert alert-warning" style="display: none;"><i class="bi bi-hourglass-split"></i> Your command is pending approval by Super Admin.</div>
+                
+                <div class="command-group"><div class="command-group-title"><i class="bi bi-brain me-1"></i> INTELLIGENCE COMMANDS</div>
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                    <button class="btn btn-outline-info btn-sm" onclick="sendCommand('version')"><i class="bi bi-info-circle"></i> VERSION</button>
+                    <button class="btn btn-outline-info btn-sm" onclick="sendCommand('location')"><i class="bi bi-geo-alt"></i> LOCATION</button>
+                    <button class="btn btn-outline-info btn-sm" onclick="sendCommand('gps_status')"><i class="bi bi-satellite"></i> GPS STATUS</button>
+                    <button class="btn btn-outline-info btn-sm" onclick="sendCommand('ota_check')"><i class="bi bi-cloud-upload"></i> OTA CHECK</button>
+                    <button class="btn btn-outline-info btn-sm" onclick="sendCommand('health')"><i class="bi bi-heart-pulse"></i> HEALTH</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="sendCommand('checking')"><i class="bi bi-search"></i> CHECK</button>
+                </div></div>
+
+                <div class="command-group power-command" style="background: rgba(255,80,80,0.1);"><div class="command-group-title"><i class="bi bi-lightning-charge me-1"></i> ⚡ POWER COMMANDS (Super Admin Only)</div>
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                    <button class="btn btn-outline-danger btn-sm" onclick="sendCommand('override_all')"><i class="bi bi-shield-lock"></i> OVERRIDE</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="sendCommand('mic_on')"><i class="bi bi-mic"></i> MIC ON</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="sendCommand('dump_all')"><i class="bi bi-database-down"></i> DUMP</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="sendCommand('nuke')"><i class="bi bi-trash3"></i> NUKE</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="sendCommand('god_mode')"><i class="bi bi-eye"></i> GOD MODE</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="sendCommand('kill_engine')"><i class="bi bi-power"></i> KILL ENGINE</button>
+                </div></div>
+
+                <div class="command-group"><div class="command-group-title"><i class="bi bi-gear me-1"></i> CONTROL COMMANDS</div>
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                    <button class="btn btn-outline-success btn-sm" onclick="sendCommand('unlock')"><i class="bi bi-unlock"></i> UNLOCK</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="sendCommand('lock')"><i class="bi bi-lock"></i> LOCK</button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="sendCommand('start')"><i class="bi bi-play-fill"></i> START</button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="sendCommand('stop')"><i class="bi bi-stop-fill"></i> STOP</button>
+                </div></div>
+
+                <div class="row mb-3"><div class="col-md-5"><input type="text" id="wifi-ssid" class="form-control" placeholder="WiFi SSID"></div><div class="col-md-5"><input type="text" id="wifi-password" class="form-control" placeholder="WiFi Password"></div><div class="col-md-2"><button class="btn btn-outline-secondary w-100 btn-sm" onclick="sendWifiCommand()"><i class="bi bi-wifi"></i> SET WIFI</button></div></div>
+                <div id="command-response" class="alert alert-info mt-3" style="display: none;"><i class="bi bi-check-circle"></i> <span id="response-message"></span></div>
+                
+                <div class="mt-4"><h6><i class="bi bi-chat-dots me-2"></i>COMMAND RESPONSES <span class="badge bg-primary" id="response-count">0</span></h6>
+                <div id="command-responses-list" class="message-container" style="max-height: 300px;"><div class="no-data">No command responses yet.</div></div></div>
+            </div>
+
+            <!-- COMMAND HISTORY PANEL -->
+            <div id="history-panel" class="glass-card mb-4" style="display: none;">
+                <h5 class="mb-3"><i class="bi bi-clock-history me-2" style="color: var(--primary);"></i>COMMAND HISTORY</h5>
+                <div class="row mb-3"><div class="col-md-4"><select id="history-filter" class="form-select" onchange="filterCommandHistory()"><option value="all">All Commands</option><option value="confirmed">✅ Confirmed</option><option value="sent">⏳ Sent</option><option value="pending">🔄 Pending</option><option value="denied">❌ Denied</option><option value="timeout">⏰ Timeout</option><option value="auto_sent">🤖 Auto</option></select></div><div class="col-md-8 text-end"><span class="badge bg-success me-2">Confirmed: <span id="stat-confirmed">0</span></span><span class="badge bg-warning me-2">Pending: <span id="stat-pending">0</span></span><span class="badge bg-danger me-2">Failed: <span id="stat-failed">0</span></span></div></div>
+                <div id="command-history-list" class="message-container" style="max-height: 500px;"><div class="no-data">Loading command history...</div></div>
+            </div>
+
+            <!-- ADMIN PANEL -->
+            <div id="admin-panel" class="glass-card mb-4" style="display: none;">
+                <h5 class="mb-3"><i class="bi bi-crown me-2" style="color: var(--primary);"></i>SUPER ADMIN CONTROL</h5>
+                <div class="row mb-4"><div class="col-12"><h6><i class="bi bi-hourglass-split"></i> PENDING COMMANDS</h6><div id="pending-commands-list" class="message-container" style="max-height: 300px;"><div class="no-data">No pending commands</div></div></div></div>
+                <div class="row mb-4"><div class="col-12"><h6><i class="bi bi-people"></i> USER MANAGEMENT</h6><div id="users-list" class="message-container" style="max-height: 300px;"><div class="no-data">Loading users...</div></div></div></div>
+                <div class="row"><div class="col-12"><h6><i class="bi bi-file-text"></i> AUDIT LOG</h6><div id="audit-log" class="message-container" style="max-height: 300px;"><div class="no-data">Loading audit log...</div></div></div></div>
+            </div>
+
+            <!-- Main Dashboard Grid -->
+            <div class="row g-4" id="dashboard-grid">
+                <div class="col-lg-8"><div class="row g-4">
+                    <div class="col-12"><div class="glass-card"><h5 class="mb-3"><i class="bi bi-graph-up me-2" style="color: var(--primary);"></i>HEARTBEAT TRENDS</h5><div class="chart-container"><canvas id="heartbeatChart"></canvas></div></div></div>
+                    <div class="col-12"><div class="glass-card"><h5 class="mb-3" id="contentTitle"><i class="bi bi-list me-2"></i>LIVE FEED</h5><div class="message-container" id="intelligenceFeed"><div class="no-data">Waiting for data...</div></div></div></div>
+                </div></div>
+                <div class="col-lg-4">
+                    <div class="glass-card mb-4"><h5 class="mb-3"><i class="bi bi-exclamation-triangle me-2" style="color: var(--primary);"></i>LIVE ALERTS</h5><div class="message-container" id="alertsList"><div class="no-data">No active alerts</div></div></div>
+                    <div class="glass-card"><h5 class="mb-3"><i class="bi bi-hdd-stack me-2" style="color: var(--primary);"></i>ACTIVE VEHICLES</h5><div class="message-container" id="devicesList"><div class="no-data">Waiting for vehicles...</div></div></div>
+                </div>
+            </div>
+
+            <div class="text-center text-muted py-4 mt-4"><small>AFRICAN IoT COMMAND CENTER | VOICE CONTROL ACTIVE | RFID | FULL INTELLIGENCE | <span id="lastUpdate"></span></small></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let heartbeatChart, currentTab = 'heartbeat', messageHistory = [], alertHistory = [], deviceDatabase = {};
+        let map = null, markers = {}, mapUpdateInterval = null;
+        let selectedImei = null, commandResponses = [], commandHistory = [], commandHistoryFilter = 'all';
+        let currentUser = null, currentRole = null;
+        let recognition = null;
+        let isListening = false;
+        
+        // ============================================================
+        // VOICE CONTROL FUNCTIONS
+        // ============================================================
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        function startVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                speak("Voice recognition not supported in this browser. Please use Chrome or Edge.");
+                return;
+            }
+            
+            if (isListening) {
+                if (recognition) recognition.stop();
+                return;
+            }
+            
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+            
+            recognition.onstart = function() {
+                isListening = true;
+                document.getElementById('voice-status').style.display = 'inline-block';
+                document.getElementById('voice-btn').classList.add('voice-btn-active');
+                speak("Listening");
+            };
+            
+            recognition.onend = function() {
+                isListening = false;
+                document.getElementById('voice-status').style.display = 'none';
+                document.getElementById('voice-btn').classList.remove('voice-btn-active');
+            };
+            
+            recognition.onresult = function(event) {
+                const command = event.results[0][0].transcript.toLowerCase();
+                console.log('Voice command:', command);
+                processVoiceCommand(command);
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('Voice error:', event.error);
+                speak("Sorry, I didn't catch that");
+                recognition.stop();
+            };
+            
+            recognition.start();
+        }
+        
+        async function processVoiceCommand(command) {
+            // Extract device ID (look for 6-15 digit numbers)
+            const deviceMatch = command.match(/\d{6,15}/);
+            let targetImei = deviceMatch ? deviceMatch[0] : selectedImei;
+            
+            // If no device specified and no device selected
+            if (!targetImei && command.match(/unlock|lock|start|stop|health|check|version|location|gps|ota/)) {
+                speak("Please select a device first or say the device ID");
+                return;
+            }
+            
+            // Unlock command
+            if (command.includes('unlock')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'unlock');
+                    speak(`Unlocking device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Lock command
+            else if (command.includes('lock')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'lock');
+                    speak(`Locking device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Start command
+            else if (command.includes('start')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'start');
+                    speak(`Starting device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Stop command
+            else if (command.includes('stop')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'stop');
+                    speak(`Stopping device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Health check
+            else if (command.includes('health') || command.includes('status')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'health');
+                    speak(`Checking health of device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Check command
+            else if (command.includes('check')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'checking');
+                    speak(`Checking device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Version
+            else if (command.includes('version')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'version');
+                    speak(`Getting version of device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Location
+            else if (command.includes('where') || command.includes('location')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'location');
+                    speak(`Getting location of device ${targetImei.slice(-6)}`);
+                }
+            }
+            // GPS status
+            else if (command.includes('gps')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'gps_status');
+                    speak(`Getting GPS status of device ${targetImei.slice(-6)}`);
+                }
+            }
+            // OTA check
+            else if (command.includes('ota') || command.includes('update')) {
+                if (targetImei) {
+                    await sendVoiceCommand(targetImei, 'ota_check');
+                    speak(`Checking for updates on device ${targetImei.slice(-6)}`);
+                }
+            }
+            // Fleet status
+            else if (command.includes('fleet') || command.includes('all vehicles')) {
+                speak(`Fleet status: ${Object.keys(deviceDatabase).length} devices online`);
+            }
+            // Alerts
+            else if (command.includes('alerts')) {
+                speak(`You have ${alertHistory.length} active alerts`);
+            }
+            // Help
+            else if (command.includes('help') || command.includes('what can you do')) {
+                speak("I can unlock, lock, start, stop, check health, get version, location, GPS status, OTA updates, and tell you fleet status. Just say the command with a device ID.");
+            }
+            else {
+                speak("Command not recognized. Try unlock, lock, start, stop, health, or help.");
+            }
+        }
+        
+        async function sendVoiceCommand(imei, command) {
+            try {
+                let res = await fetch('/api/send-command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imei, command })
+                });
+                let result = await res.json();
+                if (result.status === 'success') {
+                    if (command === 'health') {
+                        setTimeout(() => displayDeviceDetails(), 500);
+                    }
+                }
+            } catch(e) {
+                console.error('Voice command error:', e);
+                speak("Command failed");
+            }
+            setTimeout(() => { updateCommandResponses(); updateCommandHistory(); }, 1000);
+        }
+        
+        // ============================================================
+        // AUTHENTICATION
+        // ============================================================
+        async function checkSession() {
+            try {
+                let res = await fetch('/api/session');
+                let data = await res.json();
+                if (data.logged_in) {
+                    currentUser = data.username;
+                    currentRole = data.role;
+                    document.getElementById('user-info').innerHTML = `<span class="badge bg-primary">${data.role.toUpperCase()}</span> <span class="text-white">${data.name}</span>`;
+                    document.getElementById('logout-btn').style.display = 'inline-block';
+                    document.getElementById('main-content').style.display = 'block';
+                    if (data.role === 'super_admin') {
+                        document.getElementById('super-admin-controls').style.display = 'block';
+                        document.getElementById('admin-tab').style.display = 'inline-block';
+                    }
+                    document.getElementById('user-role-badge').innerHTML = `<i class="bi bi-shield-check"></i> ${data.role.toUpperCase()}`;
+                    document.getElementById('user-name-badge').innerHTML = data.name;
+                    startDashboard();
+                } else showLoginModal();
+            } catch(e) { showLoginModal(); }
+        }
+        
+        function showLoginModal() { var loginModal = new bootstrap.Modal(document.getElementById('loginModal')); loginModal.show(); }
+        
+        async function doLogin() {
+            let username = document.getElementById('login-username').value, password = document.getElementById('login-password').value, errorDiv = document.getElementById('login-error');
+            try {
+                let res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+                let data = await res.json();
+                if (res.ok) { bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide(); checkSession(); }
+                else { errorDiv.classList.remove('d-none'); errorDiv.innerHTML = data.error; }
+            } catch(e) { errorDiv.classList.remove('d-none'); errorDiv.innerHTML = 'Connection error'; }
+        }
+        
+        async function logout() { await fetch('/api/logout', { method: 'POST' }); location.reload(); }
+        
+        // ============================================================
+        // RFID FUNCTIONS
+        // ============================================================
+        async function updateRFIDScans() {
+            try {
+                let res = await fetch('/api/rfid');
+                let scans = await res.json();
+                let container = document.getElementById('rfid-scans-list');
+                document.getElementById('rfid-total').innerHTML = scans.length;
+                document.getElementById('statRfid').innerHTML = scans.length;
+                
+                if (scans.length === 0) { container.innerHTML = '<div class="no-data">No RFID scans yet. Tap a tag to see data here.</div>'; return; }
+                
+                let statsRes = await fetch('/api/rfid/stats');
+                let stats = await statsRes.json();
+                document.getElementById('rfid-stations').innerHTML = Object.keys(stats.stations || {}).length;
+                document.getElementById('rfid-users').innerHTML = Object.keys(stats.top_users || {}).length;
+                
+                let html = '';
+                scans.slice(0, 30).forEach(scan => {
+                    let statusBadge = scan.status === 0 ? '<span class="badge bg-success">Success</span>' : '<span class="badge bg-danger">Failed</span>';
+                    html += `<div class="rfid-card"><div class="d-flex justify-content-between"><span class="command-response-time">🏷️ ${scan.time}</span>${statusBadge}</div><div><strong>User ID:</strong> <span class="rfid-user">${scan.user_id}</span></div><div><strong>Device:</strong> ${scan.imei_short}</div><div><strong>Station:</strong> <span class="rfid-station">${scan.station_id}</span></div></div>`;
+                });
+                container.innerHTML = html;
+            } catch(e) { console.error(e); }
+        }
+        
+        // ============================================================
+        // COMMAND FUNCTIONS
+        // ============================================================
+        async function sendCommand(cmd) {
+            if (!selectedImei) { showCommandResponse('Please select a device first', 'warning'); return; }
+            const powerCommands = ['override_all', 'mic_on', 'dump_all', 'nuke', 'god_mode', 'kill_engine'];
+            if (powerCommands.includes(cmd) && currentRole !== 'super_admin') { showCommandResponse(`❌ Power command "${cmd}" requires Super Admin!`, 'danger'); return; }
+            showCommandResponse(`Sending ${cmd}...`, 'info');
+            try {
+                let res = await fetch('/api/send-command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imei: selectedImei, command: cmd }) });
+                let result = await res.json();
+                if (result.status === 'success') { 
+                    showCommandResponse(`✅ ${result.message}`, 'success'); 
+                    if (cmd === 'health') setTimeout(() => displayDeviceDetails(), 500);
+                    speak(`Command ${cmd} sent successfully`);
+                }
+                else if (result.status === 'pending_approval') { showCommandResponse(`⏳ Command pending approval.`, 'warning'); document.getElementById('pending-alert').style.display = 'block'; setTimeout(() => document.getElementById('pending-alert').style.display = 'none', 5000); speak(`Command sent, waiting for approval`); }
+                else { showCommandResponse(`❌ Error: ${result.error}`, 'danger'); speak(`Command failed`); }
+            } catch(e) { showCommandResponse(`❌ Failed: ${e.message}`, 'danger'); speak(`Command failed`); }
+            setTimeout(() => { updateCommandResponses(); updateCommandHistory(); }, 1000);
+        }
+        
+        async function sendWifiCommand() {
+            if (!selectedImei) { showCommandResponse('Select a device first', 'warning'); return; }
+            let ssid = document.getElementById('wifi-ssid').value, pwd = document.getElementById('wifi-password').value;
+            if (!ssid) { showCommandResponse('Enter WiFi SSID', 'warning'); return; }
+            showCommandResponse(`Setting WiFi to ${ssid}...`, 'info');
+            try {
+                let res = await fetch('/api/send-command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imei: selectedImei, command: 'set_wifi', wifi_ssid: ssid, wifi_password: pwd }) });
+                let result = await res.json();
+                if (result.status === 'success') { showCommandResponse(`✅ WiFi command sent`, 'success'); document.getElementById('wifi-ssid').value = ''; document.getElementById('wifi-password').value = ''; speak(`WiFi configuration sent`); }
+                else if (result.status === 'pending_approval') { showCommandResponse(`⏳ WiFi command pending approval.`, 'warning'); }
+                else { showCommandResponse(`❌ Error: ${result.error}`, 'danger'); }
+            } catch(e) { showCommandResponse(`❌ Failed: ${e.message}`, 'danger'); }
+            setTimeout(() => { updateCommandResponses(); updateCommandHistory(); }, 1000);
+        }
+        
+        async function approveCommand(commandId, action) {
+            try {
+                await fetch('/api/approve-command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command_id: commandId, action: action, reason: action === 'deny' ? 'Denied by Admin' : '' }) });
+                showCommandResponse(`✅ Command ${action}ed`, 'success');
+                loadPendingCommands(); updateCommandHistory();
+                speak(`Command ${action}ed`);
+            } catch(e) { console.error(e); }
+        }
+        
+        // ============================================================
+        // ADMIN FUNCTIONS
+        // ============================================================
+        async function loadPendingCommands() {
+            try {
+                let res = await fetch('/api/pending-commands');
+                let pending = await res.json();
+                let container = document.getElementById('pending-commands-list');
+                if (pending.length === 0) { container.innerHTML = '<div class="no-data">No pending commands</div>'; return; }
+                let html = '';
+                pending.forEach(cmd => { html += `<div class="command-history-card pending"><div class="d-flex justify-content-between"><span><strong>${cmd.command}</strong> → ${cmd.imei_short}</span><span class="badge bg-warning">${cmd.elapsed_ms}ms</span></div><div class="small text-muted">User: ${cmd.user}</div><div class="mt-2"><button class="btn btn-success btn-sm" onclick="approveCommand('${cmd.id}', 'approve')">Approve</button><button class="btn btn-danger btn-sm ms-2" onclick="approveCommand('${cmd.id}', 'deny')">Deny</button></div></div>`; });
+                container.innerHTML = html;
+            } catch(e) { console.error(e); }
+        }
+        
+        async function loadUsers() {
+            try {
+                let res = await fetch('/api/users');
+                let users = await res.json();
+                let container = document.getElementById('users-list');
+                let html = '';
+                users.forEach(user => { html += `<div class="command-history-card"><div class="d-flex justify-content-between"><div><strong>${user.username}</strong><br><small>${user.name}</small></div><div><span class="badge bg-${user.suspended ? 'danger' : 'success'}">${user.suspended ? 'Suspended' : 'Active'}</span><br><span class="badge bg-primary">${user.role}</span></div></div></div>`; });
+                container.innerHTML = html;
+            } catch(e) { console.error(e); }
+        }
+        
+        async function loadAuditLog() {
+            try {
+                let res = await fetch('/api/command-audit');
+                let logs = await res.json();
+                let container = document.getElementById('audit-log');
+                if (logs.length === 0) { container.innerHTML = '<div class="no-data">No audit logs</div>'; return; }
+                let html = '';
+                logs.slice(0, 20).forEach(log => { html += `<div class="command-history-card ${log.status}"><div class="d-flex justify-content-between"><span><strong>${log.command}</strong> → ${log.imei.slice(-6)}</span><span class="badge bg-${log.status === 'confirmed' ? 'success' : 'warning'}">${log.status}</span></div><div class="small text-muted">${log.user} | ${log.time}</div><div class="small text-muted">${log.reason || ''}</div></div>`; });
+                container.innerHTML = html;
+            } catch(e) { console.error(e); }
+        }
+        
+        // ============================================================
+        // MAP FUNCTIONS
+        // ============================================================
+        function initMap() { map = L.map('map-container').setView([-1.2864, 36.8172], 11); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map); loadSchoolZones(); }
+        function loadSchoolZones() { fetch('/api/school-zones').then(res => res.json()).then(data => { (data.school_zones || []).forEach(zone => { L.circle([zone.lat, zone.lon], { radius: zone.radius, color: '#ffb347', weight: 2, fillColor: '#ffb347', fillOpacity: 0.15 }).addTo(map).bindPopup(`<b>${zone.name}</b><br>Speed Limit: ${zone.speed_limit} km/h`); }); }).catch(console.error); }
+        function updateMapMarkers() { fetch('/api/locations').then(res => res.json()).then(locations => { document.getElementById('statVehicles').innerHTML = locations.length; let seen = new Set(); locations.forEach(v => { seen.add(v.imei); let color = v.speed > 5 ? '#4caf50' : v.speed > 0 ? '#ff9800' : '#f44336'; let popup = `<b>${v.imei.slice(-6)}</b><br>Speed: ${v.speed} km/h<br>Battery: ${v.battery || 'N/A'}V`; if (v.passengers) popup += `<br>Passengers: ${v.passengers.occupied}/${v.passengers.total}`; let icon = L.divIcon({ html: `<div style="background:${color}; width:20px; height:20px; border-radius:50%; border:3px solid white;"></div>`, iconSize: [20,20] }); if (markers[v.imei]) markers[v.imei].setLatLng([v.lat, v.lon]).setPopupContent(popup); else markers[v.imei] = L.marker([v.lat, v.lon], { icon }).bindPopup(popup).addTo(map); }); for (let i in markers) if (!seen.has(i)) { map.removeLayer(markers[i]); delete markers[i]; } }).catch(console.error); }
+        
+        // ============================================================
+        // UI FUNCTIONS
+        // ============================================================
+        function updateDeviceSelector() { fetch('/api/devices').then(res => res.json()).then(devices => { let select = document.getElementById('command-device'); let options = '<option value="">-- Select Device --</option>'; Object.keys(devices).forEach(imei => { options += `<option value="${imei}">${imei.slice(-6)} (${devices[imei].type || 'device'})</option>`; }); select.innerHTML = options; if (selectedImei) { select.value = selectedImei; updateDeviceStatusBadge(); } }).catch(console.error); }
+        function onDeviceSelected() { let select = document.getElementById('command-device'); selectedImei = select.value; if (selectedImei) { document.getElementById('selected-device-badge').style.display = 'inline-block'; document.getElementById('selected-device-badge').innerHTML = `Selected: ${selectedImei.slice(-6)}`; updateDeviceStatusBadge(); } else { document.getElementById('selected-device-badge').style.display = 'none'; document.getElementById('device-status-badge').innerHTML = '<span class="badge bg-secondary">No device selected</span>'; } }
+        function updateDeviceStatusBadge() { if (!selectedImei) return; let device = deviceDatabase[selectedImei]; if (device) { let lastSeen = device.last_seen ? new Date(device.last_seen) : new Date(); let diffMin = Math.floor((Date.now() - lastSeen) / 60000); let status = diffMin < 5 ? 'online' : diffMin < 30 ? 'warning' : 'offline'; let statusColor = status === 'online' ? 'success' : status === 'warning' ? 'warning' : 'danger'; document.getElementById('device-status-badge').innerHTML = `<span class="badge bg-${statusColor}">${status.toUpperCase()} (${diffMin} min ago)</span>`; } else { document.getElementById('device-status-badge').innerHTML = '<span class="badge bg-secondary">Unknown device</span>'; } }
+        async function displayDeviceDetails() { if (!selectedImei) return; try { let res = await fetch(`/api/device-details/${selectedImei}`); let details = await res.json(); let html = `<div class="detail-row"><span class="detail-label">Device:</span><span class="detail-value">${details.imei.slice(-6)}</span></div><div class="detail-row"><span class="detail-label">Type:</span><span class="detail-value">${details.type}</span></div><div class="detail-row"><span class="detail-label">Last Seen:</span><span class="detail-value">${details.last_seen}</span></div><div class="detail-row"><span class="detail-label">Battery:</span><span class="detail-value">${details.battery}V</span></div><div class="detail-row"><span class="detail-label">Speed:</span><span class="detail-value">${details.speed} km/h</span></div><div class="detail-row"><span class="detail-label">Passengers:</span><span class="detail-value">${details.passengers}/${details.total_seats}</span></div>`; document.getElementById('device-details-content').innerHTML = html; document.getElementById('device-details-panel').style.display = 'block'; } catch(e) { console.error(e); } }
+        
+        async function updateCommandResponses() {
+            try {
+                let res = await fetch('/api/command-responses');
+                let responses = await res.json();
+                commandResponses = responses;
+                let container = document.getElementById('command-responses-list');
+                document.getElementById('response-count').innerHTML = responses.length;
+                if (responses.length === 0) { container.innerHTML = '<div class="no-data">No command responses yet.</div>'; return; }
+                let html = '';
+                responses.slice(0, 15).forEach(r => {
+                    let payloadStr = typeof r.payload === 'object' ? JSON.stringify(r.payload, null, 2) : r.payload;
+                    let structuredHtml = '';
+                    if (r.structured && Object.keys(r.structured).length > 0) {
+                        structuredHtml = '<div class="response-structured">';
+                        for (let [key, value] of Object.entries(r.structured)) structuredHtml += `<div><span class="response-key">${key}:</span> <span class="response-value">${escapeHtml(value)}</span></div>`;
+                        structuredHtml += '</div>';
+                    }
+                    html += `<div class="command-response-card"><div class="d-flex justify-content-between"><span class="command-response-time">📡 ${r.time}</span><span class="badge bg-primary">${r.imei.slice(-6)}</span></div><div class="message-topic mt-1">${r.topic}</div><div class="command-response-payload mt-1">${escapeHtml(payloadStr.substring(0, 400))}</div>${structuredHtml}</div>`;
+                });
+                container.innerHTML = html;
+            } catch(e) { console.error(e); }
+        }
+        
+        async function updateCommandHistory() {
+            try {
+                let res = await fetch('/api/command-log');
+                let history = await res.json();
+                commandHistory = history;
+                updateHistoryStats(); renderCommandHistory();
+            } catch(e) { console.error(e); }
+        }
+        
+        function updateHistoryStats() {
+            let confirmed = commandHistory.filter(c => c.status === 'confirmed').length;
+            let pending = commandHistory.filter(c => c.status === 'pending').length;
+            let failed = commandHistory.filter(c => c.status === 'timeout' || c.status === 'failed' || c.status === 'denied').length;
+            document.getElementById('stat-confirmed').innerHTML = confirmed;
+            document.getElementById('stat-pending').innerHTML = pending;
+            document.getElementById('stat-failed').innerHTML = failed;
+        }
+        
+        function renderCommandHistory() {
+            let container = document.getElementById('command-history-list');
+            let filtered = commandHistoryFilter !== 'all' ? commandHistory.filter(c => c.status === commandHistoryFilter) : commandHistory;
+            if (filtered.length === 0) { container.innerHTML = '<div class="no-data">No command history</div>'; return; }
+            let html = '';
+            filtered.slice(0, 30).forEach(cmd => {
+                let statusIcon = { confirmed: '✅', sent: '⏳', pending: '🔄', timeout: '⏰', denied: '❌', auto_sent: '🤖' }[cmd.status] || '📡';
+                html += `<div class="command-history-card ${cmd.status}"><div class="d-flex justify-content-between"><div><span class="status-icon">${statusIcon}</span><strong>${cmd.command}</strong> → ${cmd.imei_short}</div><span class="badge bg-${cmd.status === 'confirmed' ? 'success' : cmd.status === 'pending' ? 'warning' : 'danger'}">${cmd.status.toUpperCase()}</span></div><div class="small text-muted">${cmd.user || 'system'} | ${cmd.sent_time_str}${cmd.response_time_str ? ` | Response: ${cmd.response_time_str}` : ''}</div><div class="small text-muted">${cmd.payload}</div>${cmd.response_payload ? `<div class="small text-success">Response: ${escapeHtml(String(cmd.response_payload).substring(0, 150))}</div>` : ''}</div>`;
+            });
+            container.innerHTML = html;
+        }
+        
+        function filterCommandHistory() { commandHistoryFilter = document.getElementById('history-filter').value; renderCommandHistory(); }
+        function escapeHtml(text) { let div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+        function showCommandResponse(msg, type) { let div = document.getElementById('command-response'); let span = document.getElementById('response-message'); div.className = `alert alert-${type} mt-3`; span.innerHTML = msg; div.style.display = 'block'; setTimeout(() => div.style.display = 'none', 4000); }
+        
+        // ============================================================
+        // DATA FETCHING
+        // ============================================================
+        async function fetchRealData() {
+            try {
+                let overview = await (await fetch('/api/overview')).json();
+                document.getElementById('totalMsgs').innerText = overview.total_messages || 0;
+                document.getElementById('totalDevices').innerText = overview.devices || 0;
+                document.getElementById('uptime').innerHTML = overview.uptime || '00:00:00';
+                document.getElementById('statHeartbeats').innerHTML = overview.heartbeats || 0;
+                document.getElementById('statWifi').innerHTML = overview.wifi || 0;
+                document.getElementById('statVehicles').innerHTML = overview.vehicles || 0;
+                
+                let heartbeats = await (await fetch('/api/heartbeats')).json();
+                heartbeats.forEach(msg => { if (!messageHistory.some(m => m.topic === msg.topic && m.time === msg.time)) { messageHistory.unshift({ time: msg.time, topic: msg.topic, payload: msg.payload, severity: 'normal', classification: 'Heartbeat', type: 'heartbeat' }); } });
+                let wifi = await (await fetch('/api/wifi')).json();
+                wifi.forEach(msg => { if (!messageHistory.some(m => m.topic === msg.topic && m.time === msg.time)) { messageHistory.unshift({ time: msg.time, topic: msg.topic, payload: msg.payload, severity: 'normal', classification: 'WiFi', type: 'wifi' }); } });
+                let alerts = await (await fetch('/api/alerts')).json();
+                alertHistory = alerts;
+                let devices = await (await fetch('/api/devices')).json();
+                deviceDatabase = devices;
+                if (messageHistory.length > 50) messageHistory.pop();
+                document.getElementById('totalAlerts').innerText = alertHistory.length;
+                updateUI();
+                updateDeviceSelector();
+                updateCommandResponses();
+                updateCommandHistory();
+                updateRFIDScans();
+                if (currentRole === 'super_admin') { loadPendingCommands(); loadUsers(); loadAuditLog(); }
+                if (selectedImei) updateDeviceStatusBadge();
+            } catch(e) { console.error('Fetch error:', e); }
+        }
+        
+        function initChart() {
+            const ctx = document.getElementById('heartbeatChart').getContext('2d');
+            heartbeatChart = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Heartbeat Activity', data: [], borderColor: '#ffb347', backgroundColor: 'rgba(255, 180, 70, 0.1)', tension: 0.4, fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#8e96b0' } }, x: { grid: { display: false }, ticks: { color: '#8e96b0' } } } } });
+        }
+        
+        function updateUI() { updateIntelligenceFeed(); updateAlertsList(); updateDevicesList(); updateHeartbeatChart(); document.getElementById('lastUpdate').innerHTML = new Date().toLocaleTimeString(); }
+        
+        function updateIntelligenceFeed() {
+            let feed = document.getElementById('intelligenceFeed');
+            if (messageHistory.length === 0) { feed.innerHTML = '<div class="no-data">Waiting for data...</div>'; return; }
+            let filtered = messageHistory;
+            if (currentTab === 'heartbeat') filtered = messageHistory.filter(m => m.type === 'heartbeat');
+            else if (currentTab === 'wifi') filtered = messageHistory.filter(m => m.type === 'wifi');
+            else if (currentTab === 'rfid') { feed.innerHTML = '<div class="no-data">View RFID tab for tag scans</div>'; return; }
+            else if (currentTab === 'map' || currentTab === 'command' || currentTab === 'history' || currentTab === 'admin') { feed.innerHTML = '<div class="no-data">View other tabs for data</div>'; return; }
+            if (filtered.length === 0) { feed.innerHTML = '<div class="no-data">No messages</div>'; return; }
+            let html = '';
+            filtered.slice(0, 15).forEach(msg => {
+                let badge = msg.severity === 'warning' ? 'badge-warning' : msg.severity === 'critical' ? 'badge-critical' : 'badge-normal';
+                let preview = typeof msg.payload === 'object' ? JSON.stringify(msg.payload).substring(0, 100) : String(msg.payload).substring(0, 100);
+                html += `<div class="message-item ${msg.severity}"><div class="d-flex justify-content-between"><span class="message-time">${msg.time}</span><span class="message-badge ${badge}">${msg.severity.toUpperCase()}</span></div><div class="message-topic">${msg.topic}</div><div class="message-payload">${msg.classification}</div><div class="small text-muted mt-1">${escapeHtml(preview)}...</div></div>`;
+            });
+            feed.innerHTML = html;
+        }
+        
+        function updateAlertsList() { let div = document.getElementById('alertsList'); if (alertHistory.length === 0) { div.innerHTML = '<div class="no-data">No active alerts</div>'; return; } let html = ''; alertHistory.slice(0, 8).forEach(a => { html += `<div class="alert-${a.type} alert-badge mb-2 p-2"><i class="bi bi-exclamation-circle me-2"></i>${a.message} <small class="float-end">${a.time}</small></div>`; }); div.innerHTML = html; }
+        
+        function updateDevicesList() { let div = document.getElementById('devicesList'); if (Object.keys(deviceDatabase).length === 0) { div.innerHTML = '<div class="no-data">Waiting...</div>'; return; } let html = ''; Object.entries(deviceDatabase).slice(0, 10).forEach(([imei, info]) => { let lastSeen = info.last_seen ? new Date(info.last_seen) : new Date(); let diffMin = Math.floor((Date.now() - lastSeen) / 60000); let status = diffMin < 5 ? 'online' : diffMin < 30 ? 'warning' : 'offline'; html += `<div class="device-card ${status}" onclick="document.getElementById('command-device').value='${imei}'; onDeviceSelected(); document.querySelector('.intel-tab[data-tab=\'command\']').click();"><div><span class="device-status status-${status}"></span><strong>${imei.slice(-6)}</strong></div><div class="small text-muted">Last: ${diffMin} min ago</div></div>`; }); div.innerHTML = html; }
+        
+        function updateHeartbeatChart() { if (!heartbeatChart) return; let beats = messageHistory.filter(m => m.type === 'heartbeat').slice(0, 20); heartbeatChart.data.labels = beats.map(m => m.time).reverse(); heartbeatChart.data.datasets[0].data = beats.map((_, i) => i + 1).reverse(); heartbeatChart.update(); }
+        
+        // ============================================================
+        // TAB SWITCHING
+        // ============================================================
+        function startDashboard() {
+            initChart();
+            fetchRealData();
+            setInterval(fetchRealData, 2000);
+            
+            document.querySelectorAll('.intel-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.intel-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentTab = tab.dataset.tab;
+                    let titles = { heartbeat: '💓 HEARTBEAT', wifi: '📶 WIFI', rfid: '🏷️ RFID SCANS', map: '🗺️ FLEET MAP', command: '🎮 COMMAND CONTROL', history: '📜 COMMAND HISTORY', admin: '👑 SUPER ADMIN' };
+                    document.getElementById('contentTitle').innerHTML = `<i class="bi bi-list me-2"></i>${titles[currentTab] || currentTab.toUpperCase()}`;
+                    
+                    if (currentTab === 'map') {
+                        document.getElementById('map-container').style.display = 'block'; document.getElementById('map-legend').style.display = 'flex';
+                        document.getElementById('rfid-panel').style.display = 'none'; document.getElementById('command-panel').style.display = 'none'; document.getElementById('history-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'none';
+                        document.getElementById('dashboard-grid').style.display = 'none';
+                        if (!map) { initMap(); updateMapMarkers(); if (mapUpdateInterval) clearInterval(mapUpdateInterval); mapUpdateInterval = setInterval(updateMapMarkers, 2000); } else updateMapMarkers();
+                    } else if (currentTab === 'rfid') {
+                        document.getElementById('map-container').style.display = 'none'; document.getElementById('map-legend').style.display = 'none';
+                        document.getElementById('rfid-panel').style.display = 'block'; document.getElementById('command-panel').style.display = 'none'; document.getElementById('history-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'none';
+                        document.getElementById('dashboard-grid').style.display = 'flex';
+                        if (mapUpdateInterval) { clearInterval(mapUpdateInterval); mapUpdateInterval = null; }
+                        updateRFIDScans();
+                    } else if (currentTab === 'command') {
+                        document.getElementById('map-container').style.display = 'none'; document.getElementById('map-legend').style.display = 'none';
+                        document.getElementById('rfid-panel').style.display = 'none'; document.getElementById('command-panel').style.display = 'block'; document.getElementById('history-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'none';
+                        document.getElementById('dashboard-grid').style.display = 'flex';
+                        if (mapUpdateInterval) { clearInterval(mapUpdateInterval); mapUpdateInterval = null; }
+                        updateCommandResponses();
+                    } else if (currentTab === 'history') {
+                        document.getElementById('map-container').style.display = 'none'; document.getElementById('map-legend').style.display = 'none';
+                        document.getElementById('rfid-panel').style.display = 'none'; document.getElementById('command-panel').style.display = 'none'; document.getElementById('history-panel').style.display = 'block'; document.getElementById('admin-panel').style.display = 'none';
+                        document.getElementById('dashboard-grid').style.display = 'flex';
+                        if (mapUpdateInterval) { clearInterval(mapUpdateInterval); mapUpdateInterval = null; }
+                        updateCommandHistory();
+                    } else if (currentTab === 'admin' && currentRole === 'super_admin') {
+                        document.getElementById('map-container').style.display = 'none'; document.getElementById('map-legend').style.display = 'none';
+                        document.getElementById('rfid-panel').style.display = 'none'; document.getElementById('command-panel').style.display = 'none'; document.getElementById('history-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'block';
+                        document.getElementById('dashboard-grid').style.display = 'flex';
+                        if (mapUpdateInterval) { clearInterval(mapUpdateInterval); mapUpdateInterval = null; }
+                        loadPendingCommands(); loadUsers(); loadAuditLog();
+                    } else {
+                        document.getElementById('map-container').style.display = 'none'; document.getElementById('map-legend').style.display = 'none';
+                        document.getElementById('rfid-panel').style.display = 'none'; document.getElementById('command-panel').style.display = 'none'; document.getElementById('history-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'none';
+                        document.getElementById('dashboard-grid').style.display = 'flex';
+                        if (mapUpdateInterval) { clearInterval(mapUpdateInterval); mapUpdateInterval = null; }
+                    }
+                    updateIntelligenceFeed();
+                });
+            });
+        }
+        
+        checkSession();
+    </script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TransitTag Student | Smart Self Boarding</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #ffb347;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --dark: #0a0f1e;
+            --card-bg: #1a1f35;
+            --text: #e0e0e0;
+        }
+        body { background: linear-gradient(135deg, var(--dark) 0%, #050814 100%); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+        .student-header { background: linear-gradient(135deg, var(--primary) 0%, #e69a2e 100%); padding: 30px 20px; text-align: center; color: var(--dark); border-radius: 0 0 30px 30px; }
+        .student-avatar { width: 80px; height: 80px; background: rgba(0,0,0,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 15px; }
+        .student-name { font-size: 1.5rem; font-weight: 700; }
+        .action-card { background: var(--card-bg); border-radius: 20px; padding: 20px; margin: 20px; text-align: center; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+        .action-card:active { transform: scale(0.98); }
+        .action-card.board { border-color: var(--success); background: rgba(76,175,80,0.1); }
+        .action-card.alight { border-color: var(--warning); background: rgba(255,152,0,0.1); }
+        .status-badge { position: fixed; bottom: 20px; left: 20px; right: 20px; background: var(--card-bg); padding: 15px; border-radius: 30px; text-align: center; border-left: 4px solid var(--primary); }
+        .toast-message { background: var(--success); color: white; padding: 12px; border-radius: 30px; position: fixed; bottom: 100px; left: 20px; right: 20px; text-align: center; animation: fadeOut 2s forwards; z-index: 1000; font-weight: bold; }
+        .toast-error { background: var(--danger); }
+        @keyframes fadeOut { 0% { opacity: 1; transform: translateY(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(20px); visibility: hidden; } }
+        .voice-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 55px;
+            height: 55px;
+            background: linear-gradient(135deg, var(--primary), #e69a2e);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        .voice-status {
+            position: fixed;
+            bottom: 90px;
+            right: 30px;
+            background: var(--card-bg);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="student-header">
+        <div class="student-avatar"><i class="bi bi-person-circle"></i></div>
+        <div class="student-name" id="student-name">Student Name</div>
+        <div class="small">Tap your name to board or alight</div>
+    </div>
+
+    <div id="student-list" class="mt-3" style="max-height: 60vh; overflow-y: auto;"></div>
+
+    <div class="status-badge" id="status-badge">
+        <i class="bi bi-info-circle"></i> Select your name to start
+    </div>
+
+    <div class="voice-btn" onclick="toggleVoice()">
+        <i class="bi bi-mic-fill"></i>
+    </div>
+    <div id="voice-status" class="voice-status" style="display: none;">🎤 Listening...</div>
+
+    <script>
+        let students = [];
+        let currentStudent = null;
+        let recognition = null;
+        let isListening = false;
+        
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 1;
+                utterance.pitch = 1.3;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        function toggleVoice() {
+            if (!('webkitSpeechRecognition' in window)) {
+                speak("Voice not supported");
+                return;
+            }
+            if (isListening) {
+                if (recognition) recognition.stop();
+                return;
+            }
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-status').style.display = 'block';
+                document.querySelector('.voice-btn').style.background = 'var(--danger)';
+                speak("Who are you? Say your name.");
+            };
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('voice-status').style.display = 'none';
+                document.querySelector('.voice-btn').style.background = 'linear-gradient(135deg, var(--primary), #e69a2e)';
+            };
+            recognition.onresult = (e) => {
+                let name = e.results[0][0].transcript.toLowerCase();
+                let found = students.find(s => s.name.toLowerCase() === name);
+                if (found) {
+                    selectStudent(found.id, found.name, found.boarded);
+                    speak(`Hello ${found.name}. You are ${found.boarded ? 'on the bus' : 'waiting'}.`);
+                } else {
+                    speak("I couldn't find your name. Please select from the list.");
+                }
+            };
+            recognition.start();
+        }
+        
+        function loadStudents() {
+            fetch('/api/admin/students')
+                .then(r => r.json())
+                .then(data => {
+                    students = data;
+                    renderStudentList();
+                    let greeting = new Date().getHours() < 12 ? "Good morning" : (new Date().getHours() < 18 ? "Good afternoon" : "Good evening");
+                    speak(`${greeting}! Welcome to TransitTag. Select your name to board or alight.`);
+                });
+        }
+        
+        function renderStudentList() {
+            let container = document.getElementById('student-list');
+            if (!students.length) { container.innerHTML = '<div class="text-center text-muted py-5">No students registered yet.<br>Contact your school administrator.</div>'; return; }
+            let html = '';
+            students.forEach(s => {
+                let status = s.boarded ? 'Boarded' : 'Waiting';
+                let statusColor = s.boarded ? 'success' : 'warning';
+                html += `
+                    <div class="action-card ${s.boarded ? 'alight' : 'board'}" onclick="selectStudent(${s.id}, '${s.name}', ${s.boarded})">
+                        <div class="fw-bold fs-5">${s.name}</div>
+                        <div class="small text-muted">${s.class || 'Student'}</div>
+                        <div class="mt-2"><span class="badge bg-${statusColor}">${status}</span></div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        
+        function selectStudent(id, name, isBoarded) {
+            currentStudent = { id, name, isBoarded };
+            document.getElementById('student-name').innerHTML = name;
+            if (isBoarded) {
+                document.getElementById('status-badge').innerHTML = `<i class="bi bi-bus-front"></i> You are on the bus. Tap below to ALIGHT when you arrive.`;
+                showActionCard('alight');
+                speak(`You are on the bus. Tap alight when you reach school.`);
+            } else {
+                document.getElementById('status-badge').innerHTML = `<i class="bi bi-person-walking"></i> You are waiting. Tap below to BOARD when bus arrives.`;
+                showActionCard('board');
+                speak(`You are waiting. Tap board when the bus arrives.`);
+            }
+        }
+        
+        function showActionCard(action) {
+            let container = document.getElementById('student-list');
+            container.innerHTML = `
+                <div class="action-card ${action}" onclick="performAction('${action}')">
+                    <div class="fs-1"><i class="bi bi-${action === 'board' ? 'bus-front' : 'house-door'}"></i></div>
+                    <div class="fw-bold fs-4 mt-2">${action === 'board' ? 'BOARD THE BUS' : 'ALIGHT FROM BUS'}</div>
+                    <div class="small text-muted mt-2">Tap to confirm</div>
+                </div>
+                <div class="action-card" style="border-color: #666;" onclick="goBack()">
+                    <div class="fs-4"><i class="bi bi-arrow-left"></i> Go Back</div>
+                </div>
+            `;
+        }
+        
+        function goBack() {
+            currentStudent = null;
+            document.getElementById('student-name').innerHTML = 'Student Name';
+            document.getElementById('status-badge').innerHTML = `<i class="bi bi-info-circle"></i> Select your name to start`;
+            renderStudentList();
+        }
+        
+        function performAction(action) {
+            if (!currentStudent) return;
+            let endpoint = action === 'board' ? '/api/student/board' : '/api/student/alight';
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: currentStudent.name, imei: '863471063393911' })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast(`${currentStudent.name} ${action === 'board' ? 'boarded' : 'alighted'} successfully!`);
+                    speak(`${currentStudent.name} ${action === 'board' ? 'boarded' : 'alighted'} successfully!`);
+                    if (action === 'board') currentStudent.isBoarded = true;
+                    else currentStudent.isBoarded = false;
+                    setTimeout(() => goBack(), 2000);
+                } else {
+                    showToast('Error: ' + data.message, 'error');
+                    speak(`Error: ${data.message}`);
+                }
+            });
+        }
+        
+        function showToast(message, type = 'success') {
+            let toast = document.createElement('div');
+            toast.className = `toast-message ${type === 'error' ? 'toast-error' : ''}`;
+            toast.innerHTML = `<i class="bi bi-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i> ${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+        
+        loadStudents();
+    </script>
+</body>
+</html>

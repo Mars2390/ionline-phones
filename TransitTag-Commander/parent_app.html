@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TransitTag Parent | Smart Child Tracking</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --primary: #ffb347;
+            --primary-dark: #e69a2e;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --info: #00bcd4;
+            --dark: #0a0f1e;
+            --darker: #050814;
+            --card-bg: #1a1f35;
+            --text: #e0e0e0;
+            --text-muted: #8e96b0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: linear-gradient(135deg, var(--dark) 0%, var(--darker) 100%); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        
+        /* Landing Page */
+        .landing-page {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 50%, rgba(255,180,71,0.1), transparent 50%);
+            position: relative;
+        }
+        .landing-hero {
+            padding: 100px 20px;
+            text-align: center;
+        }
+        .landing-badge {
+            display: inline-block;
+            background: rgba(255, 180, 71, 0.2);
+            color: var(--primary);
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            animation: pulse 2s infinite;
+        }
+        .landing-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .feature-card {
+            background: var(--card-bg);
+            border-radius: 25px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 180, 71, 0.1);
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+        }
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 180, 71, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2rem;
+            color: var(--primary);
+        }
+        
+        /* Dashboard Styles */
+        .parent-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 25px 20px;
+            border-radius: 0 0 30px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        .parent-header::after {
+            content: '👨‍👩‍👧';
+            position: absolute;
+            bottom: -20px;
+            right: -20px;
+            font-size: 100px;
+            opacity: 0.1;
+        }
+        .child-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .child-card.active {
+            border-left-color: var(--success);
+            background: rgba(76, 175, 80, 0.1);
+        }
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .status-boarded { background: var(--success); color: white; animation: pulse 1s infinite; }
+        .status-waiting { background: var(--warning); color: var(--dark); }
+        .status-arrived { background: var(--info); color: white; }
+        .map-container {
+            height: 350px;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid var(--primary);
+            margin-bottom: 15px;
+        }
+        .notification-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .voice-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: all 0.2s;
+            animation: pulse 2s infinite;
+        }
+        .voice-btn.listening {
+            background: var(--danger);
+            animation: pulse 0.5s infinite;
+        }
+        .floating-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 55px;
+            height: 55px;
+            background: var(--info);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg);
+            border-left: 4px solid var(--primary);
+            padding: 15px 20px;
+            border-radius: 12px;
+            max-width: 350px;
+            z-index: 1000;
+            animation: slideInRight 0.3s ease;
+        }
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .btn-primary-custom {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            padding: 12px 35px;
+            border-radius: 50px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        .voice-status {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            background: var(--card-bg);
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            border-left: 3px solid var(--primary);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <!-- LANDING PAGE -->
+    <div id="landing-page" class="landing-page">
+        <div class="landing-hero">
+            <span class="landing-badge"><i class="bi bi-shield-check"></i> Trusted by 500+ Parents</span>
+            <h1 class="landing-title">Know Your Child Is Safe<br>Every Step of the Way</h1>
+            <p class="landing-subtitle text-muted">Real-time bus tracking, instant notifications, and peace of mind — all in one beautiful app.</p>
+            <div class="landing-buttons d-flex gap-3 justify-content-center">
+                <button class="btn btn-primary-custom" onclick="showLogin()"><i class="bi bi-box-arrow-in-right"></i> Login to Track</button>
+                <button class="btn btn-outline-custom" onclick="showDemo()"><i class="bi bi-play-circle"></i> View Demo</button>
+            </div>
+        </div>
+        
+        <div class="container py-5">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="bi bi-geo-alt-fill"></i></div>
+                        <h5>Live Bus Tracking</h5>
+                        <p class="small text-muted">Watch your child's bus move in real-time</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="bi bi-bell-fill"></i></div>
+                        <h5>Instant Notifications</h5>
+                        <p class="small text-muted">Get alerts when child boards or arrives</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="bi bi-mic-fill"></i></div>
+                        <h5>Voice Assistant</h5>
+                        <p class="small text-muted">"Where is my child?" - Ask and know instantly</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN MODAL -->
+    <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="background: var(--card-bg); border: 1px solid var(--primary); border-radius: 25px;">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" style="color: var(--primary);"><i class="bi bi-person-circle me-2"></i>Parent Login</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="login-error" class="alert alert-danger d-none"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" id="parent-email" class="form-control" style="background: var(--darker); border: 1px solid var(--primary); color: var(--text);" placeholder="Enter your email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="parent-password" class="form-control" style="background: var(--darker); border: 1px solid var(--primary); color: var(--text);" placeholder="Enter password">
+                    </div>
+                    <button class="btn btn-primary-custom w-100" onclick="parentLogin()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN PARENT DASHBOARD -->
+    <div id="parent-dashboard" style="display: none;">
+        <div class="parent-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 fw-bold"><i class="bi bi-bus-front"></i> TransitTag Parent</h3>
+                    <p class="mb-0 small" id="welcome-message">Welcome back!</p>
+                </div>
+                <div class="position-relative">
+                    <i class="bi bi-bell fs-4" onclick="toggleNotifications()" style="cursor: pointer;"></i>
+                    <span id="notification-count" class="notification-badge" style="display: none;">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="container-fluid px-3 mt-3">
+            <div class="mb-3">
+                <label class="small text-muted mb-2">SELECT CHILD</label>
+                <div id="children-list" class="d-flex gap-2 overflow-auto pb-2"></div>
+            </div>
+
+            <ul class="nav nav-tabs-custom d-flex gap-2 mb-3" style="background: var(--card-bg); border-radius: 30px; padding: 5px;">
+                <li class="nav-item flex-fill text-center"><button class="nav-link active w-100" style="border-radius: 25px;" onclick="switchTab('track')">📍 Track</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" style="border-radius: 25px;" onclick="switchTab('attendance')">📋 Attendance</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" style="border-radius: 25px;" onclick="switchTab('absence')">📅 Absence</button></li>
+            </ul>
+
+            <div id="track-tab">
+                <div class="map-container" id="map"></div>
+                
+                <div id="bus-status" class="p-3 mb-3" style="background: var(--card-bg); border-radius: 20px;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><i class="bi bi-bus-front fs-4 me-2" style="color: var(--primary);"></i><span id="bus-number">Bus 101</span></div>
+                        <div><span class="status-badge" id="bus-status-badge">🟢 On Route</span></div>
+                    </div>
+                    <div class="mt-2 small text-muted">Driver: <span id="driver-name">John Driver</span> | Speed: <span id="bus-speed">0</span> km/h</div>
+                </div>
+
+                <div id="child-status-card" class="p-3 mb-3" style="background: var(--card-bg); border-radius: 20px;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><i class="bi bi-person-circle fs-4 me-2"></i><span id="child-name-display">Select a child</span></div>
+                        <div><span id="child-status-badge" class="status-badge status-waiting">⏳ Waiting</span></div>
+                    </div>
+                    <div class="mt-2 small text-muted" id="child-last-event">Last activity: --:--</div>
+                </div>
+
+                <div id="notifications-list" class="mt-3" style="max-height: 300px; overflow-y: auto;"></div>
+            </div>
+
+            <div id="attendance-tab" style="display: none;">
+                <div class="p-3 mb-3" style="background: var(--card-bg); border-radius: 20px;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><i class="bi bi-calendar-week fs-4 me-2"></i>This Week</div>
+                        <div><span id="attendance-percent" class="fw-bold text-success">100%</span></div>
+                    </div>
+                    <div id="attendance-chart" style="height: 200px;"></div>
+                </div>
+                <div id="attendance-history" class="mt-3"></div>
+            </div>
+
+            <div id="absence-tab" style="display: none;">
+                <div class="p-3 mb-3" style="background: var(--card-bg); border-radius: 20px;">
+                    <div class="d-flex justify-content-between mb-3">
+                        <button class="btn btn-sm btn-outline-primary" onclick="prevMonth()"><i class="bi bi-chevron-left"></i></button>
+                        <span id="calendar-month" class="fw-bold"></span>
+                        <button class="btn btn-sm btn-outline-primary" onclick="nextMonth()"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                    <div id="calendar-grid" class="d-flex flex-wrap justify-content-center"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="floating-btn" onclick="reportIssue()">
+            <i class="bi bi-chat-dots"></i>
+        </div>
+        <div class="voice-btn" onclick="toggleVoice()">
+            <i class="bi bi-mic-fill"></i>
+        </div>
+        <div id="voice-status" class="voice-status" style="display: none;">🎤 Listening...</div>
+    </div>
+
+    <script>
+        let currentParent = null;
+        let selectedChild = null;
+        let map, busMarker;
+        let notifications = [];
+        let absenceDates = [];
+        let currentDate = new Date();
+        let currentTab = 'track';
+        let recognition = null;
+        let isListening = false;
+        let students = [];
+        let vehicles = [];
+        let realTimeData = {};
+        
+        // Voice Functions
+        function speak(text, gender = 'female') {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = gender === 'female' ? 1.2 : 0.9;
+                utterance.voice = speechSynthesis.getVoices().find(v => v.name.includes(gender === 'female' ? 'Google UK English Female' : 'Google UK English Male'));
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        function toggleVoice() {
+            if (!('webkitSpeechRecognition' in window)) {
+                speak("Voice recognition not supported. Please use Chrome.", 'female');
+                return;
+            }
+            if (isListening) {
+                if (recognition) recognition.stop();
+                return;
+            }
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-status').style.display = 'block';
+                document.querySelector('.voice-btn').style.background = 'var(--danger)';
+                speak("I'm listening. What would you like to know?", 'female');
+            };
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('voice-status').style.display = 'none';
+                document.querySelector('.voice-btn').style.background = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
+            };
+            recognition.onresult = (e) => {
+                let cmd = e.results[0][0].transcript.toLowerCase();
+                processVoiceCommand(cmd);
+            };
+            recognition.start();
+        }
+        
+        function processVoiceCommand(cmd) {
+            if (cmd.includes('where') || cmd.includes('location') || cmd.includes('bus')) {
+                if (selectedChild) {
+                    speak(`${selectedChild.name} is currently on ${selectedChild.bus}. The bus is moving at ${document.getElementById('bus-speed').innerText} km/h.`, 'female');
+                } else {
+                    speak("Please select a child first from the list above.", 'female');
+                }
+            } else if (cmd.includes('status') || cmd.includes('boarded')) {
+                if (selectedChild) {
+                    let status = selectedChild.status === 'boarded' ? 'on the bus' : (selectedChild.status === 'arrived' ? 'already at school' : 'waiting to board');
+                    speak(`${selectedChild.name} is ${status}.`, 'female');
+                }
+            } else if (cmd.includes('eta') || cmd.includes('arrive')) {
+                speak(`The bus is approximately 5 minutes away from school.`, 'female');
+            } else if (cmd.includes('help')) {
+                speak("You can ask: Where is the bus? What is my child's status? When will the bus arrive? Or say help for this menu.", 'female');
+            } else {
+                speak("I didn't understand. Try saying: Where is the bus, or what is my child's status?", 'female');
+            }
+        }
+        
+        function showLogin() {
+            new bootstrap.Modal(document.getElementById('loginModal')).show();
+        }
+        
+        async function parentLogin() {
+            let email = document.getElementById('parent-email').value;
+            let password = document.getElementById('parent-password').value;
+            try {
+                let res = await fetch('/api/parent-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                let data = await res.json();
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                    document.getElementById('landing-page').style.display = 'none';
+                    document.getElementById('parent-dashboard').style.display = 'block';
+                    currentParent = data.parent;
+                    await loadChildren();
+                    initMap();
+                    startRealTimeUpdates();
+                    speak(`Welcome back ${currentParent.name}! Your children are ready to track.`, 'female');
+                } else {
+                    alert('Invalid credentials');
+                }
+            } catch(e) {
+                alert('Connection error');
+            }
+        }
+        
+        async function loadChildren() {
+            try {
+                let res = await fetch('/api/parent/children');
+                let children = await res.json();
+                let container = document.getElementById('children-list');
+                if (!children.length) {
+                    container.innerHTML = '<div class="text-muted">No children registered</div>';
+                    return;
+                }
+                let html = '';
+                children.forEach(child => {
+                    let statusClass = child.boarded ? 'status-boarded' : (child.alight_time ? 'status-arrived' : 'status-waiting');
+                    let statusText = child.boarded ? '✅ On Bus' : (child.alight_time ? '🏫 Arrived' : '⏳ Waiting');
+                    html += `
+                        <div class="child-card ${selectedChild?.id === child.id ? 'active' : ''}" onclick="selectChild(${child.id})">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-bold">${child.name}</div>
+                                    <div class="small text-muted">${child.class || 'Student'}</div>
+                                </div>
+                                <span class="status-badge ${statusClass}">${statusText}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+                if (children.length && !selectedChild) selectChild(children[0].id);
+                students = children;
+            } catch(e) {
+                console.error('Error loading children:', e);
+            }
+        }
+        
+        function selectChild(childId) {
+            selectedChild = students.find(c => c.id === childId);
+            if (!selectedChild) return;
+            document.getElementById('child-name-display').innerHTML = selectedChild.name;
+            let statusClass = selectedChild.boarded ? 'status-boarded' : (selectedChild.alight_time ? 'status-arrived' : 'status-waiting');
+            let statusText = selectedChild.boarded ? '✅ On Bus' : (selectedChild.alight_time ? '🏫 Arrived' : '⏳ Waiting');
+            document.getElementById('child-status-badge').className = `status-badge ${statusClass}`;
+            document.getElementById('child-status-badge').innerHTML = statusText;
+            let lastActivity = selectedChild.board_time ? `Boarded: ${new Date(selectedChild.board_time).toLocaleTimeString()}` :
+                              (selectedChild.alight_time ? `Arrived: ${new Date(selectedChild.alight_time).toLocaleTimeString()}` : 'Not yet active');
+            document.getElementById('child-last-event').innerHTML = `Last: ${lastActivity}`;
+            document.getElementById('bus-number').innerHTML = selectedChild.current_vehicle ? `Bus ${selectedChild.current_vehicle.slice(-6)}` : 'Bus 101';
+            document.querySelectorAll('.child-card').forEach(card => card.classList.remove('active'));
+            if (event?.target?.closest('.child-card')) event.target.closest('.child-card').classList.add('active');
+        }
+        
+        function initMap() {
+            map = L.map('map').setView([-1.2864, 36.8172], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+            busMarker = L.marker([-1.2864, 36.8172], {
+                icon: L.divIcon({ html: '<div style="background:#ffb347; width:30px; height:30px; border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center;"><i class="bi bi-bus-front" style="font-size:16px;"></i></div>', iconSize: [30,30] })
+            }).addTo(map).bindPopup('Bus on route');
+        }
+        
+        async function startRealTimeUpdates() {
+            setInterval(async () => {
+                try {
+                    let locRes = await fetch('/api/locations');
+                    let locations = await locRes.json();
+                    if (locations.length && busMarker) {
+                        let bus = locations[0];
+                        busMarker.setLatLng([bus.lat, bus.lon]);
+                        map.setView([bus.lat, bus.lon], 14);
+                        document.getElementById('bus-speed').innerHTML = bus.speed;
+                        busMarker.setPopupContent(`Bus ${bus.imei.slice(-6)}<br>Speed: ${bus.speed} km/h`);
+                    }
+                    await loadChildren();
+                } catch(e) {}
+            }, 3000);
+        }
+        
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('track-tab').style.display = tab === 'track' ? 'block' : 'none';
+            document.getElementById('attendance-tab').style.display = tab === 'attendance' ? 'block' : 'none';
+            document.getElementById('absence-tab').style.display = tab === 'absence' ? 'block' : 'none';
+            if (tab === 'attendance') loadAttendanceHistory();
+            if (tab === 'absence') loadAbsenceCalendar();
+        }
+        
+        function loadAttendanceHistory() {
+            let container = document.getElementById('attendance-history');
+            let ctx = document.createElement('canvas');
+            document.getElementById('attendance-chart').innerHTML = '';
+            document.getElementById('attendance-chart').appendChild(ctx);
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Present (4)', 'Absent (1)'], datasets: [{ data: [4, 1], backgroundColor: ['#4caf50', '#f44336'] }] },
+                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#e0e0e0' } } } }
+            });
+            document.getElementById('attendance-percent').innerHTML = '80%';
+            container.innerHTML = '<div class="text-center text-muted">Attendance history will appear here</div>';
+        }
+        
+        function loadAbsenceCalendar() {
+            let monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            document.getElementById('calendar-month').innerHTML = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+            let firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+            let daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+            let html = '';
+            for (let i = 0; i < firstDay; i++) html += '<div class="calendar-day" style="width:40px;height:40px;"></div>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                let isAbsent = absenceDates.includes(`${currentDate.getFullYear()}-${currentDate.getMonth()+1}-${d}`);
+                html += `<div class="calendar-day d-inline-block text-center" style="width:40px;height:40px;line-height:40px;margin:3px;border-radius:50%;${isAbsent ? 'background:#f44336;color:white;' : 'background:rgba(255,255,255,0.1);'}" onclick="toggleAbsence(${d})">${d}</div>`;
+            }
+            document.getElementById('calendar-grid').innerHTML = html;
+        }
+        
+        function toggleAbsence(day) {
+            let dateStr = `${currentDate.getFullYear()}-${currentDate.getMonth()+1}-${day}`;
+            let idx = absenceDates.indexOf(dateStr);
+            if (idx > -1) absenceDates.splice(idx, 1);
+            else absenceDates.push(dateStr);
+            loadAbsenceCalendar();
+        }
+        
+        function prevMonth() { currentDate.setMonth(currentDate.getMonth() - 1); loadAbsenceCalendar(); }
+        function nextMonth() { currentDate.setMonth(currentDate.getMonth() + 1); loadAbsenceCalendar(); }
+        function toggleNotifications() { document.getElementById('notifications-list').style.maxHeight = document.getElementById('notifications-list').style.maxHeight === '300px' ? '0' : '300px'; }
+        function reportIssue() { alert("Report sent to school. We'll get back to you soon."); speak("Thank you for your report. The school has been notified.", 'female'); }
+        
+        function showDemo() {
+            currentParent = { name: "Demo Parent" };
+            document.getElementById('landing-page').style.display = 'none';
+            document.getElementById('parent-dashboard').style.display = 'block';
+            initMap();
+            startRealTimeUpdates();
+            speak("Welcome to the demo. You can track your children in real-time.", 'female');
+        }
+        
+        // Auto-greeting on load
+        window.onload = function() {
+            let hour = new Date().getHours();
+            let greeting = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good evening");
+            document.getElementById('welcome-message').innerHTML = `${greeting}, ready to track your little ones?`;
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TransitTag Admin | Student Registration & Fleet Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --primary: #ffb347;
+            --primary-dark: #e69a2e;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --info: #00bcd4;
+            --dark: #0a0f1e;
+            --darker: #050814;
+            --card-bg: #1a1f35;
+            --text: #e0e0e0;
+            --text-muted: #8e96b0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: linear-gradient(135deg, var(--dark) 0%, var(--darker) 100%); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        .admin-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 20px;
+            border-radius: 0 0 30px 30px;
+            margin-bottom: 20px;
+            color: var(--dark);
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary);
+            transition: all 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-3px); }
+        .student-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid;
+            transition: all 0.2s;
+        }
+        .student-card.boarding { border-left-color: var(--success); }
+        .student-card.waiting { border-left-color: var(--warning); }
+        .student-card.alighted { border-left-color: var(--info); }
+        .map-container {
+            height: 400px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 2px solid var(--primary);
+        }
+        .nav-tabs-custom {
+            background: var(--card-bg);
+            border-radius: 30px;
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+        .nav-tabs-custom .nav-link {
+            border-radius: 25px;
+            color: var(--text-muted);
+            padding: 8px 20px;
+        }
+        .nav-tabs-custom .nav-link.active {
+            background: var(--primary);
+            color: var(--dark);
+        }
+        .btn-primary-custom {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        .form-control, .form-select {
+            background: var(--darker);
+            border: 1px solid var(--primary);
+            color: var(--text);
+        }
+        .form-control:focus, .form-select:focus {
+            background: var(--darker);
+            border-color: var(--primary);
+            color: var(--text);
+            box-shadow: 0 0 0 0.25rem rgba(255, 180, 71, 0.25);
+        }
+        .modal-content {
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--primary);
+        }
+        .btn-close-white {
+            filter: invert(1);
+        }
+        .live-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            margin-right: 8px;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+        .table-custom {
+            color: var(--text);
+        }
+        .table-custom thead th {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+        }
+        .table-custom td {
+            border-color: rgba(255,255,255,0.1);
+        }
+        .badge-boarded { background: var(--success); }
+        .badge-waiting { background: var(--warning); color: var(--dark); }
+        .badge-alighted { background: var(--info); }
+    </style>
+</head>
+<body>
+    <div id="admin-dashboard">
+        <!-- Header -->
+        <div class="admin-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-0"><i class="bi bi-shield-lock-fill"></i> TransitTag Admin</h2>
+                    <p class="mb-0 small">Student Registration & Fleet Intelligence</p>
+                </div>
+                <div class="d-flex gap-3 align-items-center">
+                    <span class="badge bg-success" id="online-status">🟢 LIVE</span>
+                    <span id="admin-name" class="fw-bold">Admin</span>
+                    <button class="btn btn-sm btn-outline-danger" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="container-fluid px-3">
+            <!-- Stats Row -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="stat-label text-muted">TOTAL STUDENTS</div>
+                                <div class="fw-bold fs-2" id="total-students">0</div>
+                            </div>
+                            <i class="bi bi-people fs-1" style="color: var(--primary);"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="stat-label text-muted">BOARDED TODAY</div>
+                                <div class="fw-bold fs-2" id="boarded-today">0</div>
+                            </div>
+                            <i class="bi bi-bus-front fs-1" style="color: var(--success);"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="stat-label text-muted">ACTIVE VEHICLES</div>
+                                <div class="fw-bold fs-2" id="active-vehicles">0</div>
+                            </div>
+                            <i class="bi bi-truck fs-1" style="color: var(--info);"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="stat-label text-muted">TRIP DISTANCE</div>
+                                <div class="fw-bold fs-2" id="trip-distance">0 km</div>
+                            </div>
+                            <i class="bi bi-speedometer2 fs-1" style="color: var(--warning);"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs-custom d-flex" id="adminTabs" role="tablist">
+                <li class="nav-item flex-fill text-center"><button class="nav-link active w-100" data-bs-toggle="tab" data-bs-target="#track">🗺️ Live Tracking</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#students">👥 Students</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#register">➕ Register Student</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#vehicles">🚌 Vehicles</button></li>
+                <li class="nav-item flex-fill text-center"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#alerts">⚠️ Alerts</button></li>
+            </ul>
+
+            <div class="tab-content mt-3">
+                <!-- LIVE TRACKING TAB -->
+                <div class="tab-pane fade show active" id="track">
+                    <div class="map-container" id="map"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <h6><i class="bi bi-bus-front"></i> Active Vehicle</h6>
+                                <div id="active-vehicle-info">Select a vehicle on map</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <h6><i class="bi bi-people"></i> Students on Board</h6>
+                                <div id="students-onboard">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STUDENTS TAB -->
+                <div class="tab-pane fade" id="students">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <span class="badge bg-success">✅ Boarded: <span id="boarded-count">0</span></span>
+                            <span class="badge bg-warning ms-2">⏳ Waiting: <span id="waiting-count">0</span></span>
+                            <span class="badge bg-info ms-2">🏫 Alighted: <span id="alighted-count">0</span></span>
+                        </div>
+                        <div>
+                            <input type="text" id="search-student" class="form-control form-control-sm" placeholder="Search student..." style="width: 200px;">
+                        </div>
+                    </div>
+                    <div id="students-list" style="max-height: 500px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- REGISTER STUDENT TAB -->
+                <div class="tab-pane fade" id="register">
+                    <div class="stat-card">
+                        <h5 class="mb-3"><i class="bi bi-person-plus"></i> Register New Student</h5>
+                        <form id="register-student-form">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Full Name *</label>
+                                    <input type="text" class="form-control" id="student-name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Admission Number</label>
+                                    <input type="text" class="form-control" id="student-admission">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Class/Grade *</label>
+                                    <input type="text" class="form-control" id="student-class" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">RFID Tag *</label>
+                                    <input type="text" class="form-control" id="student-rfid" placeholder="04:B3:3C:CA:B3:1A:90" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Parent Email *</label>
+                                    <input type="email" class="form-control" id="student-parent-email" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Home Address *</label>
+                                    <input type="text" class="form-control" id="student-address" placeholder="e.g., Moi Avenue" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Pickup Location (Latitude)</label>
+                                    <input type="text" class="form-control" id="student-lat" placeholder="-1.2883">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Pickup Location (Longitude)</label>
+                                    <input type="text" class="form-control" id="student-lon" placeholder="36.8200">
+                                </div>
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary-custom"><i class="bi bi-save"></i> Register Student</button>
+                                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="resetForm()">Reset</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="stat-card mt-3">
+                        <h5 class="mb-3"><i class="bi bi-info-circle"></i> Registration Instructions</h5>
+                        <ul class="small text-muted">
+                            <li>RFID Tag: Format should be like "04:B3:3C:CA:B3:1A:90" (from student wristband)</li>
+                            <li>Parent Email: Parent will receive notifications when student boards/alights</li>
+                            <li>Address: Used to determine bus stop location</li>
+                            <li>Coordinates: Click on map to auto-fill pickup location</li>
+                        </ul>
+                        <div id="register-message" class="alert d-none"></div>
+                    </div>
+                </div>
+
+                <!-- VEHICLES TAB -->
+                <div class="tab-pane fade" id="vehicles">
+                    <div class="stat-card">
+                        <h5 class="mb-3"><i class="bi bi-truck"></i> Fleet Vehicles</h5>
+                        <div id="vehicles-list" style="max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+
+                <!-- ALERTS TAB -->
+                <div class="tab-pane fade" id="alerts">
+                    <div class="stat-card">
+                        <h5 class="mb-3"><i class="bi bi-exclamation-triangle"></i> Live Alerts</h5>
+                        <div id="alerts-list" style="max-height: 500px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" style="color: var(--primary);"><i class="bi bi-shield-lock"></i> Admin Login</h5>
+                </div>
+                <div class="modal-body">
+                    <div id="login-error" class="alert alert-danger d-none"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" id="admin-username" class="form-control" placeholder="admin">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="admin-password" class="form-control" placeholder="admin123">
+                    </div>
+                    <div class="small text-muted mb-3">
+                        Demo Login: admin / admin123
+                    </div>
+                    <button class="btn btn-primary-custom w-100" onclick="adminLogin()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let map, markers = {};
+        let currentLocation = [-1.2864, 36.8172];
+        let students = [];
+        let vehicles = [];
+        let alerts = [];
+        let mapUpdateInterval = null;
+        
+        // Admin login check
+        async function checkAdminSession() {
+            try {
+                let res = await fetch('/api/session');
+                let data = await res.json();
+                if (data.logged_in && data.role === 'super_admin') {
+                    document.getElementById('admin-dashboard').style.display = 'block';
+                    document.getElementById('admin-name').innerHTML = data.name;
+                    startDashboard();
+                } else {
+                    showLoginModal();
+                }
+            } catch(e) {
+                showLoginModal();
+            }
+        }
+        
+        function showLoginModal() {
+            var loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+        }
+        
+        async function adminLogin() {
+            let username = document.getElementById('admin-username').value;
+            let password = document.getElementById('admin-password').value;
+            let errorDiv = document.getElementById('login-error');
+            
+            try {
+                let res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                let data = await res.json();
+                if (res.ok && data.role === 'super_admin') {
+                    bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                    document.getElementById('admin-dashboard').style.display = 'block';
+                    document.getElementById('admin-name').innerHTML = data.name;
+                    startDashboard();
+                } else {
+                    errorDiv.classList.remove('d-none');
+                    errorDiv.innerHTML = data.error || 'Invalid credentials or insufficient privileges';
+                }
+            } catch(e) {
+                errorDiv.classList.remove('d-none');
+                errorDiv.innerHTML = 'Connection error';
+            }
+        }
+        
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            location.reload();
+        }
+        
+        async function startDashboard() {
+            await loadStudents();
+            await loadVehicles();
+            await loadAlerts();
+            initMap();
+            startRealTimeUpdates();
+        }
+        
+        async function loadStudents() {
+            try {
+                let res = await fetch('/api/admin/students');
+                students = await res.json();
+                updateStudentStats();
+                renderStudentsList();
+            } catch(e) {
+                console.error('Error loading students:', e);
+            }
+        }
+        
+        function updateStudentStats() {
+            let today = new Date().toISOString().split('T')[0];
+            let boarded = students.filter(s => s.boarded).length;
+            let waiting = students.filter(s => !s.boarded && !s.alight_time).length;
+            let alighted = students.filter(s => s.alight_time && s.alight_time.startsWith(today)).length;
+            
+            document.getElementById('total-students').innerHTML = students.length;
+            document.getElementById('boarded-today').innerHTML = boarded;
+            document.getElementById('boarded-count').innerHTML = boarded;
+            document.getElementById('waiting-count').innerHTML = waiting;
+            document.getElementById('alighted-count').innerHTML = alighted;
+            document.getElementById('students-onboard').innerHTML = boarded;
+        }
+        
+        function renderStudentsList() {
+            let container = document.getElementById('students-list');
+            let searchTerm = document.getElementById('search-student')?.value.toLowerCase() || '';
+            
+            let filtered = students.filter(s => 
+                s.name.toLowerCase().includes(searchTerm) || 
+                (s.class && s.class.toLowerCase().includes(searchTerm))
+            );
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">No students found</div>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-custom"><thead><tr><th>Name</th><th>Class</th><th>Status</th><th>Address</th><th>Last Activity</th></tr></thead><tbody>';
+            filtered.forEach(s => {
+                let statusClass = s.boarded ? 'boarding' : (s.alight_time ? 'alighted' : 'waiting');
+                let statusBadge = s.boarded ? '<span class="badge badge-boarded">✅ Boarded</span>' : 
+                                 (s.alight_time ? '<span class="badge badge-alighted">🏫 Arrived</span>' : 
+                                 '<span class="badge badge-waiting">⏳ Waiting</span>');
+                let lastActivity = s.board_time ? `Boarded: ${new Date(s.board_time).toLocaleTimeString()}` :
+                                  (s.alight_time ? `Arrived: ${new Date(s.alight_time).toLocaleTimeString()}` : 'No activity');
+                html += `<tr class="student-card ${statusClass}">
+                            <td><strong>${s.name}</strong></td>
+                            <td>${s.class || '-'}</td>
+                            <td>${statusBadge}</td>
+                            <td>${s.address || '-'}</td>
+                            <td><small>${lastActivity}</small></td>
+                         </tr>`;
+            });
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+        
+        async function loadVehicles() {
+            try {
+                let res = await fetch('/api/admin/vehicles');
+                vehicles = await res.json();
+                renderVehiclesList();
+                document.getElementById('active-vehicles').innerHTML = vehicles.length;
+            } catch(e) {
+                console.error('Error loading vehicles:', e);
+            }
+        }
+        
+        function renderVehiclesList() {
+            let container = document.getElementById('vehicles-list');
+            if (vehicles.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">No vehicles registered</div>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-custom"><thead><tr><th>Bus Number</th><th>Driver</th><th>IMEI</th><th>Route</th><th>Status</th></tr></thead><tbody>';
+            vehicles.forEach(v => {
+                let location = dataStoreLocations?.[v.imei] || {};
+                let status = location.speed > 5 ? 'Moving' : (location.speed > 0 ? 'Idle' : 'Stopped');
+                html += `<tr>
+                            <td><strong>${v.bus_number}</strong></td>
+                            <td>${v.driver_name}</td>
+                            <td><small>${v.imei.slice(-6)}</small></td>
+                            <td>${v.route || '-'}</td>
+                            <td><span class="badge bg-${location.speed > 5 ? 'success' : (location.speed > 0 ? 'warning' : 'secondary')}">${status}</span></td>
+                         </tr>`;
+            });
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+        
+        async function loadAlerts() {
+            try {
+                let res = await fetch('/api/alerts');
+                alerts = await res.json();
+                renderAlertsList();
+            } catch(e) {
+                console.error('Error loading alerts:', e);
+            }
+        }
+        
+        function renderAlertsList() {
+            let container = document.getElementById('alerts-list');
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">No active alerts</div>';
+                return;
+            }
+            
+            let html = '';
+            alerts.forEach(a => {
+                let alertClass = a.type === 'critical' ? 'danger' : (a.type === 'warning' ? 'warning' : 'info');
+                html += `<div class="alert alert-${alertClass} alert-dismissible fade show mb-2" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>${a.time}</strong> - ${a.message}
+                         </div>`;
+            });
+            container.innerHTML = html;
+        }
+        
+        function initMap() {
+            map = L.map('map').setView(currentLocation, 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+            
+            // Add click handler for location picking
+            map.on('click', function(e) {
+                if (document.getElementById('student-lat') && document.getElementById('student-lon')) {
+                    document.getElementById('student-lat').value = e.latlng.lat.toFixed(6);
+                    document.getElementById('student-lon').value = e.latlng.lng.toFixed(6);
+                    showToast('Location set for student pickup', 'info');
+                }
+            });
+        }
+        
+        let dataStoreLocations = {};
+        
+        async function updateMapMarkers() {
+            try {
+                let res = await fetch('/api/locations');
+                let locations = await res.json();
+                dataStoreLocations = locations.reduce((acc, loc) => { acc[loc.imei] = loc; return acc; }, {});
+                
+                locations.forEach(loc => {
+                    let color = loc.speed > 5 ? '#4caf50' : (loc.speed > 0 ? '#ff9800' : '#f44336');
+                    let popup = `<b>Bus ${loc.imei.slice(-6)}</b><br>Speed: ${loc.speed} km/h<br>Battery: ${loc.battery || 'N/A'}V`;
+                    if (loc.passengers) popup += `<br>Passengers: ${loc.passengers.occupied}/${loc.passengers.total}`;
+                    
+                    let icon = L.divIcon({
+                        html: `<div style="background:${color}; width:25px; height:25px; border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center;"><i class="bi bi-bus-front" style="font-size:12px; color:white;"></i></div>`,
+                        iconSize: [25,25]
+                    });
+                    
+                    if (markers[loc.imei]) {
+                        markers[loc.imei].setLatLng([loc.lat, loc.lon]);
+                        markers[loc.imei].setPopupContent(popup);
+                    } else {
+                        markers[loc.imei] = L.marker([loc.lat, loc.lon], { icon }).addTo(map).bindPopup(popup);
+                    }
+                });
+                
+                // Update trip distance
+                if (locations.length > 0) {
+                    let tripRes = await fetch('/api/admin/current-trip');
+                    let tripData = await tripRes.json();
+                    document.getElementById('trip-distance').innerHTML = (tripData.distance || 0).toFixed(1) + ' km';
+                }
+                
+                document.getElementById('active-vehicles').innerHTML = locations.length;
+            } catch(e) {
+                console.error('Error updating map:', e);
+            }
+        }
+        
+        // Student registration
+        document.getElementById('register-student-form')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            let studentData = {
+                name: document.getElementById('student-name').value,
+                admission: document.getElementById('student-admission').value,
+                class: document.getElementById('student-class').value,
+                parent_email: document.getElementById('student-parent-email').value,
+                address: document.getElementById('student-address').value,
+                lat: parseFloat(document.getElementById('student-lat').value) || null,
+                lon: parseFloat(document.getElementById('student-lon').value) || null,
+                rfid_tag: document.getElementById('student-rfid').value,
+                boarded: false,
+                board_time: null,
+                alight_time: null
+            };
+            
+            if (!studentData.name || !studentData.class || !studentData.rfid_tag || !studentData.parent_email) {
+                showToast('Please fill all required fields', 'danger');
+                return;
+            }
+            
+            try {
+                let res = await fetch('/api/admin/students', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(studentData)
+                });
+                let data = await res.json();
+                if (data.status === 'success') {
+                    showToast(`Student ${studentData.name} registered successfully!`, 'success');
+                    resetForm();
+                    await loadStudents();
+                    document.querySelector('[data-bs-target="#students"]').click();
+                } else {
+                    showToast('Error registering student', 'danger');
+                }
+            } catch(e) {
+                showToast('Connection error', 'danger');
+            }
+        });
+        
+        function resetForm() {
+            document.getElementById('student-name').value = '';
+            document.getElementById('student-admission').value = '';
+            document.getElementById('student-class').value = '';
+            document.getElementById('student-parent-email').value = '';
+            document.getElementById('student-address').value = '';
+            document.getElementById('student-lat').value = '';
+            document.getElementById('student-lon').value = '';
+            document.getElementById('student-rfid').value = '';
+        }
+        
+        function showToast(message, type) {
+            let toastDiv = document.createElement('div');
+            toastDiv.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3`;
+            toastDiv.style.zIndex = '9999';
+            toastDiv.innerHTML = message;
+            document.body.appendChild(toastDiv);
+            setTimeout(() => toastDiv.remove(), 3000);
+        }
+        
+        function startRealTimeUpdates() {
+            // Update every 3 seconds
+            setInterval(async () => {
+                await loadStudents();
+                await loadVehicles();
+                await loadAlerts();
+                updateMapMarkers();
+            }, 3000);
+            
+            // Search filter
+            document.getElementById('search-student')?.addEventListener('input', () => renderStudentsList());
+        }
+        
+        // Search functionality
+        if (document.getElementById('search-student')) {
+            document.getElementById('search-student').addEventListener('input', renderStudentsList);
+        }
+        
+        checkAdminSession();
+    </script>
+</body>
+</html>

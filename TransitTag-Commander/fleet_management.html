@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOnline Fleet Management | Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #F69322;
+            --primary-dark: #e08510;
+            --grey: #4D4D4F;
+            --white: #FFFFFF;
+            --dark: #1a1a1a;
+            --card-bg: #2a2a2a;
+            --text: #e0e0e0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, var(--dark) 0%, #0a0a0a 100%);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+        }
+        .fleet-header {
+            background: linear-gradient(135deg, var(--grey) 0%, #3a3a3a 100%);
+            padding: 20px;
+            border-radius: 0 0 30px 30px;
+            color: var(--white);
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary);
+        }
+        .engine-metric {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .voice-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            color: var(--white);
+        }
+        .voice-status {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            background: var(--card-bg);
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            border-left: 3px solid var(--primary);
+            z-index: 1000;
+        }
+        table {
+            color: var(--text);
+        }
+        .table-custom th {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="fleet-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-0"><i class="bi bi-graph-up"></i> iOnline Fleet Management</h2>
+                <p class="mb-0 small" id="welcome-message">Analytics & Insights</p>
+            </div>
+            <div>
+                <span class="badge bg-success"><i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i> LIVE</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3 mt-3">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="stat-label">TOTAL VEHICLES</div>
+                            <div class="fw-bold fs-2" id="total-vehicles">0</div>
+                        </div>
+                        <i class="bi bi-truck fs-1" style="color: var(--primary);"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="stat-label">ACTIVE DELIVERIES</div>
+                            <div class="fw-bold fs-2" id="active-deliveries">0</div>
+                        </div>
+                        <i class="bi bi-box-seam fs-1" style="color: var(--primary);"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="stat-label">TOTAL DISTANCE</div>
+                            <div class="fw-bold fs-2" id="total-distance">0 km</div>
+                        </div>
+                        <i class="bi bi-rulers fs-1" style="color: var(--primary);"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="stat-label">AVG FUEL</div>
+                            <div class="fw-bold fs-2" id="avg-fuel">0 L/100km</div>
+                        </div>
+                        <i class="bi bi-fuel-pump fs-1" style="color: var(--primary);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="stat-card">
+                    <h5><i class="bi bi-activity"></i> Engine Performance Analytics</h5>
+                    <canvas id="engineChart" height="200"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="stat-card">
+                    <h5><i class="bi bi-exclamation-triangle"></i> Active Alerts</h5>
+                    <div id="alerts-list" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card mt-3">
+            <h5><i class="bi bi-table"></i> Vehicle Engine Status</h5>
+            <div class="table-responsive">
+                <table class="table table-custom">
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Driver</th>
+                            <th>RPM</th>
+                            <th>Temp</th>
+                            <th>Fuel</th>
+                            <th>Battery</th>
+                            <th>Load</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vehicle-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <h5><i class="bi bi-graph-up"></i> Fuel Consumption Trend</h5>
+            <canvas id="fuelChart" height="150"></canvas>
+        </div>
+    </div>
+
+    <div class="voice-btn" onclick="toggleVoice()">
+        <i class="bi bi-mic-fill"></i>
+    </div>
+    <div id="voice-status" class="voice-status" style="display: none;">🎤 Listening...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let vehicles = [];
+        let deliveries = [];
+        let alerts = [];
+        let engineChart, fuelChart;
+        let recognition = null;
+        let isListening = false;
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function toggleVoice() {
+            if (!('webkitSpeechRecognition' in window)) {
+                speak("Voice not supported.");
+                return;
+            }
+            if (isListening) {
+                if (recognition) recognition.stop();
+                return;
+            }
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-status').style.display = 'block';
+                document.querySelector('.voice-btn').style.background = '#f44336';
+                speak("Fleet manager, I'm listening.");
+            };
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('voice-status').style.display = 'none';
+                document.querySelector('.voice-btn').style.background = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
+            };
+            recognition.onresult = (e) => {
+                let cmd = e.results[0][0].transcript.toLowerCase();
+                processVoiceCommand(cmd);
+            };
+            recognition.start();
+        }
+
+        function processVoiceCommand(cmd) {
+            if (cmd.includes('vehicles') || cmd.includes('fleet')) {
+                speak(`Total vehicles: ${vehicles.length}. ${vehicles.filter(v => v.status === 'online').length} online.`);
+            } else if (cmd.includes('engine') || cmd.includes('performance')) {
+                let avgTemp = vehicles.reduce((sum, v) => sum + (v.engine?.coolant_temp || 0), 0) / vehicles.length;
+                speak(`Average engine temperature is ${Math.round(avgTemp)} degrees Celsius.`);
+            } else if (cmd.includes('fuel')) {
+                let avgFuel = vehicles.reduce((sum, v) => sum + (v.fuel_consumption || 0), 0) / vehicles.length;
+                speak(`Average fuel consumption is ${avgFuel.toFixed(1)} liters per 100 kilometers.`);
+            } else if (cmd.includes('alerts')) {
+                speak(`You have ${alerts.length} active alerts.`);
+            } else if (cmd.includes('help')) {
+                speak("You can ask about vehicles, engine performance, fuel consumption, or alerts.");
+            } else {
+                speak("Command not recognized. Try vehicles, engine performance, fuel, or alerts.");
+            }
+        }
+
+        function loadData() {
+            fetch('/api/vehicles')
+                .then(r => r.json())
+                .then(data => {
+                    vehicles = data;
+                    updateStats();
+                    renderVehicleTable();
+                    updateEngineChart();
+                });
+            
+            fetch('/api/deliveries')
+                .then(r => r.json())
+                .then(data => {
+                    deliveries = data;
+                    document.getElementById('active-deliveries').innerHTML = deliveries.filter(d => d.status === 'in_progress').length;
+                });
+            
+            fetch('/api/alerts')
+                .then(r => r.json())
+                .then(data => {
+                    alerts = data;
+                    renderAlerts();
+                });
+        }
+
+        function updateStats() {
+            let total = vehicles.length;
+            let totalDist = vehicles.reduce((sum, v) => sum + (v.total_distance || 0), 0);
+            let avgFuel = vehicles.reduce((sum, v) => sum + (v.fuel_consumption || 0), 0) / total;
+            
+            document.getElementById('total-vehicles').innerHTML = total;
+            document.getElementById('total-distance').innerHTML = totalDist.toFixed(0);
+            document.getElementById('avg-fuel').innerHTML = avgFuel.toFixed(1);
+        }
+
+        function renderVehicleTable() {
+            let tbody = document.getElementById('vehicle-table-body');
+            let html = '';
+            vehicles.forEach(v => {
+                let engine = v.engine || {};
+                let statusBadge = v.status === 'online' ? '<span class="badge bg-success">Online</span>' : '<span class="badge bg-danger">Offline</span>';
+                html += `
+                    <tr>
+                        <td><strong>${v.bus_number}</strong></td>
+                        <td>${v.driver_name}</td>
+                        <td>${engine.rpm || 0}</td>
+                        <td>${engine.coolant_temp || 0}°C</td>
+                        <td>${engine.fuel_level || 0}%</td>
+                        <td>${engine.battery_voltage || 0}V</td>
+                        <td>${engine.engine_load || 0}%</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function updateEngineChart() {
+            if (engineChart) engineChart.destroy();
+            let ctx = document.getElementById('engineChart').getContext('2d');
+            let temps = vehicles.map(v => v.engine?.coolant_temp || 0);
+            let rpms = vehicles.map(v => v.engine?.rpm || 0);
+            
+            engineChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: vehicles.map(v => v.bus_number),
+                    datasets: [
+                        { label: 'Temperature (°C)', data: temps, backgroundColor: '#F69322', borderColor: '#F69322', borderWidth: 1 },
+                        { label: 'RPM', data: rpms, backgroundColor: '#4D4D4F', borderColor: '#4D4D4F', borderWidth: 1 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top', labels: { color: '#e0e0e0' } } } }
+            });
+        }
+
+        function renderAlerts() {
+            let container = document.getElementById('alerts-list');
+            if (!alerts.length) {
+                container.innerHTML = '<div class="text-muted">No active alerts</div>';
+                return;
+            }
+            let html = '';
+            alerts.slice(0, 5).forEach(a => {
+                let alertClass = a.type === 'danger' ? 'danger' : (a.type === 'warning' ? 'warning' : 'info');
+                html += `<div class="alert alert-${alertClass} alert-sm mb-2 p-2"><i class="bi bi-bell"></i> ${a.message}</div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        // Initialize fuel consumption chart
+        function initFuelChart() {
+            let ctx = document.getElementById('fuelChart').getContext('2d');
+            fuelChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{ label: 'Fuel Consumption (L/100km)', data: [12.5, 13.2, 12.8, 12.2], borderColor: '#F69322', backgroundColor: 'rgba(246,147,34,0.1)', tension: 0.4, fill: true }]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#e0e0e0' } } } }
+            });
+        }
+
+        // Initialize
+        let hour = new Date().getHours();
+        let greeting = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good evening");
+        document.getElementById('welcome-message').innerHTML = `${greeting}, Fleet Manager`;
+        speak(`${greeting}, Fleet Manager. All systems operational.`);
+
+        loadData();
+        initFuelChart();
+        setInterval(loadData, 10000);
+    </script>
+</body>
+</html>

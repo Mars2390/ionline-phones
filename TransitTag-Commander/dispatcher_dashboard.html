@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOnline Dispatcher | Fleet Control Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --primary: #F69322;
+            --primary-dark: #e08510;
+            --grey: #4D4D4F;
+            --white: #FFFFFF;
+            --dark: #1a1a1a;
+            --card-bg: #2a2a2a;
+            --text: #e0e0e0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, var(--dark) 0%, #0a0a0a 100%);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+        }
+        .dispatcher-header {
+            background: linear-gradient(135deg, var(--grey) 0%, #3a3a3a 100%);
+            padding: 20px;
+            border-radius: 0 0 30px 30px;
+            color: var(--white);
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary);
+        }
+        .vehicle-card, .driver-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vehicle-card.online { border-left-color: #4caf50; }
+        .vehicle-card.offline { border-left-color: #f44336; }
+        .driver-card { border-left-color: var(--primary); }
+        .vehicle-card:hover, .driver-card:hover { transform: translateX(5px); background: rgba(246,147,34,0.1); }
+        .message-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--primary);
+        }
+        .map-container {
+            height: 400px;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid var(--primary);
+            margin-bottom: 15px;
+        }
+        .voice-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            color: var(--white);
+        }
+        .voice-status {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            background: var(--card-bg);
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            border-left: 3px solid var(--primary);
+            z-index: 1000;
+        }
+        .btn-primary-custom {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            color: var(--white);
+            font-weight: 600;
+        }
+        .btn-danger-custom {
+            background: #f44336;
+            border: none;
+            color: white;
+            font-size: 12px;
+            padding: 4px 10px;
+        }
+        .delete-driver {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: all 0.2s;
+        }
+        .delete-driver:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="dispatcher-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-0"><i class="bi bi-headset"></i> iOnline Dispatch</h2>
+                <p class="mb-0 small" id="welcome-message">Fleet Control Center</p>
+            </div>
+            <div>
+                <span class="badge bg-success"><i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i> LIVE</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3 mt-3">
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="map-container" id="map"></div>
+                <div class="stat-card">
+                    <h5><i class="bi bi-truck"></i> Active Fleet</h5>
+                    <div id="fleet-summary" class="d-flex gap-3">
+                        <div><span class="badge bg-success">Online: <span id="online-count">0</span></span></div>
+                        <div><span class="badge bg-danger">Offline: <span id="offline-count">0</span></span></div>
+                        <div><span class="badge bg-warning">On Delivery: <span id="delivery-count">0</span></span></div>
+                        <div><span class="badge bg-primary">Total Drivers: <span id="total-drivers">0</span></span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="stat-card">
+                    <h5><i class="bi bi-megaphone"></i> Send Announcement</h5>
+                    <textarea id="announcement-text" class="form-control mb-2" rows="3" placeholder="Enter announcement for ALL drivers..."></textarea>
+                    <button class="btn btn-primary-custom w-100" onclick="sendAnnouncement()">Send to All Drivers</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DRIVER MANAGEMENT SECTION -->
+        <div class="stat-card">
+            <h5><i class="bi bi-person-plus"></i> Add New Driver</h5>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" id="new-driver-name" class="form-control" placeholder="Driver Full Name *">
+                </div>
+                <div class="col-md-3">
+                    <input type="tel" id="new-driver-phone" class="form-control" placeholder="Phone Number">
+                </div>
+                <div class="col-md-3">
+                    <input type="email" id="new-driver-email" class="form-control" placeholder="Email (optional)">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary-custom w-100" onclick="addNewDriver()">
+                        <i class="bi bi-plus-circle"></i> Add
+                    </button>
+                </div>
+            </div>
+            <div id="add-driver-result" class="small mt-2"></div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h5><i class="bi bi-people"></i> Registered Drivers</h5>
+                    <div id="drivers-list" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h5><i class="bi bi-chat-dots"></i> Messages from Drivers</h5>
+                    <div id="driver-messages" style="max-height: 200px; overflow-y: auto;"></div>
+                    <div class="mt-3">
+                        <div class="d-flex gap-2">
+                            <select id="message-driver" class="form-select">
+                                <option value="">Select Driver</option>
+                            </select>
+                            <input type="text" id="message-to-driver" class="form-control" placeholder="Message...">
+                            <button class="btn btn-primary-custom" onclick="sendToDriver()">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DELIVERY CREATION SECTION -->
+        <div class="stat-card">
+            <h5><i class="bi bi-plus-circle"></i> Create Delivery Request</h5>
+            <div class="row g-2">
+                <div class="col-md-3"><input type="text" id="pickup" class="form-control" placeholder="Pickup Location *"></div>
+                <div class="col-md-2"><input type="text" id="pickup-lat" class="form-control" placeholder="Latitude"></div>
+                <div class="col-md-2"><input type="text" id="pickup-lon" class="form-control" placeholder="Longitude"></div>
+                <div class="col-md-3"><input type="text" id="dropoff" class="form-control" placeholder="Dropoff Location *"></div>
+                <div class="col-md-2"><input type="text" id="dropoff-lat" class="form-control" placeholder="Latitude"></div>
+                <div class="col-md-2"><input type="text" id="dropoff-lon" class="form-control" placeholder="Longitude"></div>
+                <div class="col-md-2"><input type="text" id="customer" class="form-control" placeholder="Customer Name *"></div>
+                <div class="col-md-2"><input type="text" id="customer-phone" class="form-control" placeholder="Customer Phone"></div>
+                <div class="col-md-3">
+                    <select id="assign-vehicle" class="form-select">
+                        <option value="">Select Driver/Vehicle</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="delivery-notes" class="form-control" placeholder="Notes">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary-custom w-100" onclick="createDelivery()">Create Delivery</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h5><i class="bi bi-list-check"></i> Active Deliveries</h5>
+                    <div id="deliveries-list" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="stat-card">
+                    <h5><i class="bi bi-truck"></i> Vehicles</h5>
+                    <div id="vehicles-list" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="voice-btn" onclick="toggleVoice()">
+        <i class="bi bi-mic-fill"></i>
+    </div>
+    <div id="voice-status" class="voice-status" style="display: none;">🎤 Listening...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let socket = io();
+        let map, vehicleMarkers = {};
+        let vehicles = [];
+        let deliveries = [];
+        let drivers = [];
+        let messages = [];
+        let recognition = null;
+        let isListening = false;
+
+        socket.emit('join', { room: 'dispatcher' });
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function toggleVoice() {
+            if (!('webkitSpeechRecognition' in window)) {
+                speak("Voice not supported.");
+                return;
+            }
+            if (isListening) {
+                if (recognition) recognition.stop();
+                return;
+            }
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-status').style.display = 'block';
+                document.querySelector('.voice-btn').style.background = '#f44336';
+                speak("Dispatcher, I'm listening.");
+            };
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('voice-status').style.display = 'none';
+                document.querySelector('.voice-btn').style.background = 'linear-gradient(135deg, var(--primary), var(--primary-dark))';
+            };
+            recognition.onresult = (e) => {
+                let cmd = e.results[0][0].transcript.toLowerCase();
+                processVoiceCommand(cmd);
+            };
+            recognition.start();
+        }
+
+        function processVoiceCommand(cmd) {
+            if (cmd.includes('vehicles') || cmd.includes('fleet')) {
+                let online = vehicles.filter(v => v.status === 'online').length;
+                speak(`You have ${online} vehicles online out of ${vehicles.length} total.`);
+            } else if (cmd.includes('driver') || cmd.includes('drivers')) {
+                speak(`You have ${drivers.length} registered drivers.`);
+            } else if (cmd.includes('delivery') || cmd.includes('deliveries')) {
+                let active = deliveries.filter(d => d.status === 'in_progress').length;
+                speak(`There are ${active} active deliveries.`);
+            } else if (cmd.includes('add driver')) {
+                document.getElementById('new-driver-name').focus();
+                speak("Enter driver name.");
+            } else if (cmd.includes('announcement')) {
+                document.getElementById('announcement-text').focus();
+                speak("What would you like to announce?");
+            } else if (cmd.includes('help')) {
+                speak("You can ask about fleet status, drivers, deliveries, add driver, send announcement, or help.");
+            } else {
+                speak("Command not recognized. Try fleet status, drivers, deliveries, or help.");
+            }
+        }
+
+        // ============================================
+        // DRIVER MANAGEMENT FUNCTIONS
+        // ============================================
+        function loadDrivers() {
+            fetch('/api/drivers')
+                .then(r => r.json())
+                .then(data => {
+                    drivers = data;
+                    renderDriversList();
+                    updateDriverSelectors();
+                    document.getElementById('total-drivers').innerHTML = drivers.length;
+                });
+        }
+
+        function renderDriversList() {
+            let container = document.getElementById('drivers-list');
+            if (!drivers.length) {
+                container.innerHTML = '<div class="text-muted text-center py-3">No drivers registered</div>';
+                return;
+            }
+            let html = '';
+            drivers.forEach(d => {
+                let statusBadge = d.status === 'online' ? '<span class="badge bg-success">Online</span>' : '<span class="badge bg-secondary">Offline</span>';
+                html += `
+                    <div class="driver-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">${d.name}</div>
+                                <div class="small text-muted">${d.phone || 'No phone'} | Vehicle: ${d.vehicle_imei?.slice(-6) || 'N/A'}</div>
+                                <div class="small">Added: ${new Date(d.created_at).toLocaleDateString()}</div>
+                            </div>
+                            <div class="text-end">
+                                ${statusBadge}
+                                <div class="delete-driver mt-1" onclick="deleteDriver(${d.id})" title="Delete Driver">
+                                    <i class="bi bi-trash3 text-danger"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function updateDriverSelectors() {
+            let select = document.getElementById('message-driver');
+            let vehicleSelect = document.getElementById('assign-vehicle');
+            select.innerHTML = '<option value="">Select Driver</option>';
+            vehicleSelect.innerHTML = '<option value="">Select Driver/Vehicle</option>';
+            
+            drivers.forEach(d => {
+                select.innerHTML += `<option value="${d.name}">${d.name}</option>`;
+                if (d.vehicle_imei) {
+                    vehicleSelect.innerHTML += `<option value="${d.vehicle_imei}">${d.name} (${d.vehicle_imei.slice(-6)})</option>`;
+                }
+            });
+        }
+
+        function addNewDriver() {
+            let name = document.getElementById('new-driver-name').value;
+            let phone = document.getElementById('new-driver-phone').value;
+            let email = document.getElementById('new-driver-email').value;
+            
+            if (!name) {
+                document.getElementById('add-driver-result').innerHTML = '<span class="text-danger">Driver name required</span>';
+                speak("Driver name required.");
+                return;
+            }
+            
+            fetch('/api/drivers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    phone: phone,
+                    email: email || `${name.toLowerCase().replace(/\s/g, '.')}@ionline.com`
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('add-driver-result').innerHTML = `
+                        <span class="text-success">✅ Driver ${data.driver.name} added!</span><br>
+                        <span class="text-muted small">Login: Select from dropdown | Password: driver123</span>
+                    `;
+                    document.getElementById('new-driver-name').value = '';
+                    document.getElementById('new-driver-phone').value = '';
+                    document.getElementById('new-driver-email').value = '';
+                    loadDrivers();
+                    loadVehicles();
+                    speak(`Driver ${name} has been added successfully.`);
+                    setTimeout(() => {
+                        document.getElementById('add-driver-result').innerHTML = '';
+                    }, 5000);
+                } else {
+                    document.getElementById('add-driver-result').innerHTML = `<span class="text-danger">❌ ${data.error}</span>`;
+                    speak(data.error);
+                }
+            })
+            .catch(err => {
+                document.getElementById('add-driver-result').innerHTML = '<span class="text-danger">Connection error</span>';
+            });
+        }
+
+        function deleteDriver(driverId) {
+            if (confirm("Are you sure you want to delete this driver? This will also remove their vehicle.")) {
+                fetch(`/api/drivers/${driverId}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            loadDrivers();
+                            loadVehicles();
+                            speak(data.message);
+                        }
+                    });
+            }
+        }
+
+        // ============================================
+        // VEHICLE & FLEET FUNCTIONS
+        // ============================================
+        function loadVehicles() {
+            fetch('/api/vehicles')
+                .then(r => r.json())
+                .then(data => {
+                    vehicles = data;
+                    renderVehiclesList();
+                    updateMapMarkers();
+                    updateFleetStats();
+                });
+        }
+
+        function renderVehiclesList() {
+            let container = document.getElementById('vehicles-list');
+            let html = '';
+            vehicles.forEach(v => {
+                let statusClass = v.status === 'online' ? 'online' : 'offline';
+                let location = v.location || {};
+                html += `
+                    <div class="vehicle-card ${statusClass}" onclick="callDriver('${v.imei}', '${v.driver_name}')">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="fw-bold">${v.bus_number}</div>
+                                <div class="small">Driver: ${v.driver_name}</div>
+                                <div class="small">Speed: ${location.speed || 0} km/h</div>
+                            </div>
+                            <div>
+                                <span class="badge bg-${v.status === 'online' ? 'success' : 'danger'}">${v.status}</span>
+                                <button class="btn btn-sm btn-outline-primary mt-1 d-block" onclick="event.stopPropagation();callDriver('${v.imei}', '${v.driver_name}')">
+                                    <i class="bi bi-telephone"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html || '<div class="text-muted">No vehicles</div>';
+        }
+
+        function updateMapMarkers() {
+            Object.values(vehicleMarkers).forEach(m => map.removeLayer(m));
+            vehicleMarkers = {};
+            vehicles.forEach(v => {
+                let loc = v.location || {};
+                if (loc.lat && loc.lon) {
+                    let color = v.status === 'online' ? '#4caf50' : '#f44336';
+                    let icon = L.divIcon({
+                        html: `<div style="background:${color}; width:25px; height:25px; border-radius:50%; border:2px solid white; display:flex; align-items:center; justify-content:center;"><i class="bi bi-truck" style="font-size:12px; color:white;"></i></div>`,
+                        iconSize: [25,25]
+                    });
+                    vehicleMarkers[v.imei] = L.marker([loc.lat, loc.lon], { icon }).addTo(map).bindPopup(`
+                        <b>${v.bus_number}</b><br>
+                        Driver: ${v.driver_name}<br>
+                        Speed: ${loc.speed || 0} km/h
+                    `);
+                }
+            });
+        }
+
+        function updateFleetStats() {
+            let online = vehicles.filter(v => v.status === 'online').length;
+            let offline = vehicles.filter(v => v.status !== 'online').length;
+            let onDelivery = deliveries.filter(d => d.status === 'in_progress').length;
+            document.getElementById('online-count').innerHTML = online;
+            document.getElementById('offline-count').innerHTML = offline;
+            document.getElementById('delivery-count').innerHTML = onDelivery;
+        }
+
+        // ============================================
+        // DELIVERY FUNCTIONS
+        // ============================================
+        function loadDeliveries() {
+            fetch('/api/deliveries')
+                .then(r => r.json())
+                .then(data => {
+                    deliveries = data;
+                    renderDeliveriesList();
+                    updateFleetStats();
+                });
+        }
+
+        function renderDeliveriesList() {
+            let container = document.getElementById('deliveries-list');
+            if (!deliveries.length) {
+                container.innerHTML = '<div class="text-muted">No deliveries</div>';
+                return;
+            }
+            let html = '';
+            deliveries.slice().reverse().forEach(d => {
+                let statusColor = d.status === 'completed' ? 'success' : (d.status === 'in_progress' ? 'warning' : 'secondary');
+                html += `
+                    <div class="vehicle-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="fw-bold">${d.id}</div>
+                                <div class="small">${d.pickup} → ${d.dropoff}</div>
+                                <div class="small">Customer: ${d.customer} | Assigned: ${d.assigned_driver || 'Unassigned'}</div>
+                                ${d.notes ? `<div class="small text-warning">📝 ${d.notes}</div>` : ''}
+                            </div>
+                            <span class="badge bg-${statusColor}">${d.status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function createDelivery() {
+            let assignedTo = document.getElementById('assign-vehicle').value;
+            let delivery = {
+                pickup: document.getElementById('pickup').value,
+                pickup_lat: parseFloat(document.getElementById('pickup-lat').value) || null,
+                pickup_lon: parseFloat(document.getElementById('pickup-lon').value) || null,
+                dropoff: document.getElementById('dropoff').value,
+                dropoff_lat: parseFloat(document.getElementById('dropoff-lat').value) || null,
+                dropoff_lon: parseFloat(document.getElementById('dropoff-lon').value) || null,
+                customer: document.getElementById('customer').value,
+                customer_phone: document.getElementById('customer-phone').value,
+                assigned_to: assignedTo,
+                notes: document.getElementById('delivery-notes').value,
+                items: []
+            };
+            
+            if (!delivery.pickup || !delivery.dropoff || !delivery.customer) {
+                alert("Please fill pickup, dropoff, and customer");
+                speak("Please fill all required fields.");
+                return;
+            }
+            
+            fetch('/api/deliveries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(delivery)
+            }).then(() => {
+                document.getElementById('pickup').value = '';
+                document.getElementById('pickup-lat').value = '';
+                document.getElementById('pickup-lon').value = '';
+                document.getElementById('dropoff').value = '';
+                document.getElementById('dropoff-lat').value = '';
+                document.getElementById('dropoff-lon').value = '';
+                document.getElementById('customer').value = '';
+                document.getElementById('customer-phone').value = '';
+                document.getElementById('delivery-notes').value = '';
+                loadDeliveries();
+                speak(`Delivery created and assigned.`);
+            });
+        }
+
+        // ============================================
+        // MESSAGING FUNCTIONS
+        // ============================================
+        function loadMessages() {
+            fetch('/api/messages')
+                .then(r => r.json())
+                .then(data => {
+                    messages = data;
+                    renderMessages();
+                });
+        }
+
+        function renderMessages() {
+            let container = document.getElementById('driver-messages');
+            let driverMessages = messages.filter(m => m.sender !== 'dispatcher' && m.sender !== 'Dispatch Operator');
+            if (!driverMessages.length) {
+                container.innerHTML = '<div class="text-muted">No messages from drivers</div>';
+                return;
+            }
+            let html = '';
+            driverMessages.slice().reverse().forEach(m => {
+                html += `
+                    <div class="message-card">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">🚛 ${m.sender}</span>
+                            <span class="small text-muted">${new Date(m.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="mt-1">${m.message}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendToDriver() {
+            let driverName = document.getElementById('message-driver').value;
+            let message = document.getElementById('message-to-driver').value;
+            if (!driverName || !message) {
+                alert("Select driver and enter message");
+                return;
+            }
+            
+            let driver = drivers.find(d => d.name === driverName);
+            if (!driver) {
+                alert("Driver not found");
+                return;
+            }
+            
+            fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender: 'dispatcher',
+                    driver_id: driver.id,
+                    message: message
+                })
+            });
+            
+            document.getElementById('message-to-driver').value = '';
+            speak(`Message sent to ${driverName}`);
+        }
+
+        function sendAnnouncement() {
+            let msg = document.getElementById('announcement-text').value;
+            if (!msg) return;
+            socket.emit('announcement', { message: msg, sender: 'dispatcher' });
+            speak(`Announcement sent to all drivers: ${msg}`);
+            document.getElementById('announcement-text').value = '';
+        }
+
+        function callDriver(imei, driverName) {
+            fetch('/api/voice/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from: 'dispatcher', to: imei })
+            });
+            speak(`Calling ${driverName}...`);
+        }
+
+        function initMap() {
+            map = L.map('map').setView([-1.2864, 36.8172], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        }
+
+        // Socket events
+        socket.on('new_message', (message) => {
+            loadMessages();
+            if (message.sender !== 'dispatcher') {
+                speak(`Message from ${message.sender}: ${message.message}`);
+            }
+        });
+
+        socket.on('new_driver', () => {
+            loadDrivers();
+            loadVehicles();
+            speak("A new driver has been added to the system.");
+        });
+
+        socket.on('delivery_updated', () => {
+            loadDeliveries();
+        });
+
+        // Initialize
+        let hour = new Date().getHours();
+        let greeting = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good evening");
+        document.getElementById('welcome-message').innerHTML = `${greeting}, Dispatch Center`;
+        speak(`${greeting}, Dispatch Center. Fleet monitoring active.`);
+
+        initMap();
+        loadVehicles();
+        loadDeliveries();
+        loadDrivers();
+        loadMessages();
+        setInterval(() => { loadVehicles(); loadDeliveries(); loadMessages(); }, 10000);
+    </script>
+</body>
+</html>
